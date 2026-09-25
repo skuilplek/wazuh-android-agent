@@ -112,7 +112,8 @@ class PostureCollector(private val context: Context) {
             put("adb_enabled", Settings.Global.getInt(resolver, Settings.Global.ADB_ENABLED, 0) == 1)
             put("adb_wifi_enabled", Settings.Global.getInt(resolver, "adb_wifi_enabled", 0) == 1)
             put("sideload_capable_apps", Events.array(sideloadCapableApps()))
-            put("device_admins", Events.array(dpm.activeAdmins.orEmpty().map { it.packageName }.distinct().sorted()))
+            // The agent's own admin is reported through agent_admin events instead.
+            put("device_admins", Events.array(dpm.activeAdmins.orEmpty().map { it.packageName }.filter { it != context.packageName }.distinct().sorted()))
             put("accessibility_services", Events.array(secureList(Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)))
             put("notification_listeners", Events.array(secureList("enabled_notification_listeners")))
             put("verified_boot_state", prop("ro.boot.verifiedbootstate"))
@@ -122,6 +123,7 @@ class PostureCollector(private val context: Context) {
             put("root_indicators", Events.array(indicators))
             put("rooted", indicators.isNotEmpty())
             put("emulator", isEmulator())
+            put("capabilities", Capabilities.toJson(Capabilities.check(context)))
         }
     }
 

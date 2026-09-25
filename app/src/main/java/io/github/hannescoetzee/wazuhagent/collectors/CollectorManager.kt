@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import io.github.hannescoetzee.wazuhagent.admin.DeviceOwner
 import io.github.hannescoetzee.wazuhagent.queue.EventQueue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,11 +40,14 @@ class CollectorManager(
             runCatching { context.contentResolver.registerContentObserver(uri, false, settingsObserver) }
         }
         PostureWorker.schedule(context)
+        DeviceOwner.enableLogging(context)
         scope.launch {
             runCatching { posture.collectAndReport(queue) }
                 .onFailure { AgentLog.error("Posture collection failed", it) }
             runCatching { packages.reconcile() }
                 .onFailure { AgentLog.error("Package reconcile failed", it) }
+            runCatching { SecurityLogCollector(context).collectPreReboot(queue) }
+                .onFailure { AgentLog.error("Pre-reboot security log collection failed", it) }
         }
     }
 

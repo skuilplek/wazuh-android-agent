@@ -24,23 +24,19 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.hannescoetzee.wazuhagent.DeviceInfo
+import io.github.hannescoetzee.wazuhagent.collectors.Capabilities
+import io.github.hannescoetzee.wazuhagent.collectors.Capability
 import io.github.hannescoetzee.wazuhagent.service.AgentStatus
 import io.github.hannescoetzee.wazuhagent.service.ConnectionState
 import java.text.DateFormat
 import java.util.Date
-
-data class PermissionState(
-    val notificationsGranted: Boolean,
-    val batteryUnrestricted: Boolean,
-    val locationGranted: Boolean,
-)
 
 @Composable
 fun SetupScreen(
     ui: UiState,
     status: AgentStatus,
     queueSize: Int,
-    permissions: PermissionState,
+    capabilities: List<Capability>,
     onFormChange: ((SetupForm) -> SetupForm) -> Unit,
     onEnroll: () -> Unit,
     onSave: () -> Unit,
@@ -50,7 +46,9 @@ fun SetupScreen(
     onRequestNotifications: () -> Unit,
     onRequestBattery: () -> Unit,
     onRequestLocation: () -> Unit,
+    onRequestDeviceAdmin: () -> Unit,
 ) {
+    val byName = capabilities.associateBy { it.name }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -145,10 +143,36 @@ fun SetupScreen(
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Permissions", style = MaterialTheme.typography.titleMedium)
-                PermissionRow("Status notification", permissions.notificationsGranted, onRequestNotifications)
-                PermissionRow("Run unrestricted in background", permissions.batteryUnrestricted, onRequestBattery)
-                PermissionRow("Location (Wi-Fi name in network events)", permissions.locationGranted, onRequestLocation)
+                byName[Capabilities.NOTIFICATIONS]?.let { PermissionRow(it, onRequestNotifications) }
+                byName[Capabilities.BATTERY_UNRESTRICTED]?.let { PermissionRow(it, onRequestBattery) }
+                byName[Capabilities.LOCATION]?.let { PermissionRow(it, onRequestLocation) }
+                byName[Capabilities.DEVICE_ADMIN]?.let { PermissionRow(it, onRequestDeviceAdmin) }
             }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Capabilities", style = MaterialTheme.typography.titleMedium)
+                listOf(Capabilities.DEVICE_OWNER, Capabilities.SECURITY_LOGGING, Capabilities.NETWORK_LOGGING)
+                    .mapNotNull { byName[it] }
+                    .forEach { CapabilityRow(it) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CapabilityRow(capability: Capability) {
+    Column {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(capability.label, modifier = Modifier.weight(1f))
+            Text(
+                if (capability.available) "Available" else "Limited",
+                color = if (capability.available) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (!capability.available) {
+            Text(capability.reason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -182,16 +206,21 @@ private fun StatusCard(ui: UiState, status: AgentStatus, queueSize: Int, onStart
 }
 
 @Composable
-private fun PermissionRow(label: String, granted: Boolean, onRequest: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(label, modifier = Modifier.weight(1f).padding(top = 12.dp))
-        if (granted) {
-            Text("Granted", color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 12.dp))
-        } else {
-            TextButton(onClick = onRequest) { Text("Allow") }
+private fun PermissionRow(capability: Capability, onRequest: () -> Unit) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(capability.label, modifier = Modifier.weight(1f).padding(top = 12.dp))
+            if (capability.available) {
+                Text("Granted", color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 12.dp))
+            } else {
+                TextButton(onClick = onRequest) { Text("Allow") }
+            }
+        }
+        if (!capability.available) {
+            Text(capability.reason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

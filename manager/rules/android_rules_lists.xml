@@ -1,0 +1,58 @@
+<!--
+  Optional rules that check Android agent events against CDB lists on the manager:
+
+    etc/lists/android_blocked_apps         package names that must never be installed
+    etc/lists/android_approved_apps        user apps that are expected on the phones
+    etc/lists/android_suspicious_domains   hostnames to flag in Device Owner DNS logs
+
+  Install the lists and declare them in ossec.conf before this file (see manager/README.md);
+  the manager refuses to load rules that reference a missing list.
+
+  A child rule only runs when its parent matched and no earlier sibling did, so each rule
+  hangs off every package rule an install can end in. Blocked-app rules come first so they
+  win over the approved-list rules.
+-->
+<group name="android,">
+
+  <rule id="100290" level="12">
+    <if_sid>100230, 100231, 100232, 100234</if_sid>
+    <field name="android.action" type="pcre2">^(installed|updated)$</field>
+    <list field="android.package" lookup="match_key">etc/lists/android_blocked_apps</list>
+    <description>Blocked Android app $(android.action): $(android.package)</description>
+    <group>android_package,android_blocked_app,</group>
+  </rule>
+
+  <rule id="100292" level="12">
+    <if_sid>100235, 100236</if_sid>
+    <list field="android.package" lookup="match_key">etc/lists/android_blocked_apps</list>
+    <description>Blocked Android app present: $(android.package)</description>
+    <group>android_package,android_inventory,android_blocked_app,</group>
+  </rule>
+
+  <!-- ADB installs (100232) already alert at level 9, so they are not rechecked here -->
+  <rule id="100238" level="8">
+    <if_sid>100230, 100231, 100234</if_sid>
+    <field name="android.action">^installed$</field>
+    <field name="android.system_app">^false$</field>
+    <list field="android.package" lookup="not_match_key">etc/lists/android_approved_apps</list>
+    <description>Android app installed that is not on the approved list: $(android.package) via $(android.installer_type)</description>
+    <group>android_package,android_unapproved_app,</group>
+  </rule>
+
+  <!-- Sideloaded inventory entries (100236) already alert at level 6 -->
+  <rule id="100239" level="5">
+    <if_sid>100235</if_sid>
+    <field name="android.system_app">^false$</field>
+    <list field="android.package" lookup="not_match_key">etc/lists/android_approved_apps</list>
+    <description>Android app present that is not on the approved list: $(android.package)</description>
+    <group>android_package,android_inventory,android_unapproved_app,</group>
+  </rule>
+
+  <rule id="100291" level="10">
+    <if_sid>100256</if_sid>
+    <list field="android.hostname" lookup="match_key">etc/lists/android_suspicious_domains</list>
+    <description>Android app $(android.package) looked up a suspicious domain: $(android.hostname)</description>
+    <group>android_network_log,threat_intel,</group>
+  </rule>
+
+</group>

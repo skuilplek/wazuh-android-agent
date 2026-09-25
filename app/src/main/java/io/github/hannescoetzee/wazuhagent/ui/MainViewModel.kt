@@ -5,15 +5,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.hannescoetzee.wazuhagent.DeviceInfo
 import io.github.hannescoetzee.wazuhagent.app
-import io.github.hannescoetzee.wazuhagent.collectors.AgentLog
 import io.github.hannescoetzee.wazuhagent.collectors.CollectorManager
 import io.github.hannescoetzee.wazuhagent.collectors.PostureWorker
-import io.github.hannescoetzee.wazuhagent.protocol.AgentNames
-import io.github.hannescoetzee.wazuhagent.protocol.Enrollment
-import io.github.hannescoetzee.wazuhagent.protocol.EnrollmentRequest
 import io.github.hannescoetzee.wazuhagent.service.AgentForegroundService
 import io.github.hannescoetzee.wazuhagent.service.AgentState
+import io.github.hannescoetzee.wazuhagent.service.Enroller
 import io.github.hannescoetzee.wazuhagent.storage.ManagerConfig
+import io.github.hannescoetzee.wazuhagent.storage.validatedManagerConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -63,6 +61,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             val loaded = withContext(Dispatchers.IO) { Triple(store.config, enrollmentInfo(), store.agentEnabled) }
+            if (loaded.second != null && loaded.third) AgentForegroundService.start(getApplication())
             _ui.update { state ->
                 state.copy(
                     form = loaded.first?.toForm() ?: state.form,
@@ -80,29 +79,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _ui.update { it.copy(busy = true, message = "Enrolling with ${config.host}:${config.enrollPort}…", isError = false) }
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    val previousHost = store.config?.host
-                    val pin = store.pinnedCertSha256.takeIf { previousHost == config.host && store.agentKey != null }
-                    val request = EnrollmentRequest(
-                        host = config.host,
-                        port = config.enrollPort,
-                        agentName = config.agentName,
-                        password = config.password.ifEmpty { null },
-                        groups = config.groups.ifBlank { null },
-                        pinnedCertSha256 = pin,
-                    )
-                    val enrolled = Enrollment.enrollNegotiatingVersion(request)
-                    AgentForegroundService.stop(getApplication())
-                    store.config = config
-                    store.saveEnrollment(enrolled.key, enrolled.agentVersion, enrolled.serverCertSha256)
-                    CollectorManager.resetState(getApplication())
-                    store.agentEnabled = true
-                    enrolled
-                }
+                runCatching { Enroller.enroll(getApplication(), config) }
             }
             result.onSuccess { enrolled ->
-                AgentLog.info("Enrolled as agent ${enrolled.key.id} (${enrolled.key.name}) with ${config.host}")
-                AgentForegroundService.start(getApplication())
                 _ui.update {
                     it.copy(
                         busy = false,
@@ -179,37 +158,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         keepaliveSeconds = keepaliveSeconds.toString(),
     )
 
-    private fun SetupForm.toConfig(): ManagerConfig {
-        val host = host.trim()
-        require(host.isNotEmpty()) { "Enter the manager address" }
-        require(host.none { it.isWhitespace() }) { "Manager address must not contain spaces" }
-        val enrollPort = parsePort(enrollPort, "Enroll port")
-        val port = parsePort(port, "Agent port")
-        val keepalive = keepaliveSeconds.trim().toIntOrNull()?.takeIf { it in 10..600 }
-            ?: throw IllegalArgumentException("Keepalive must be between 10 and 600 seconds")
-        require(password.none { it == '\n' || it == '\r' }) { "Password must not contain line breaks" }
-        val name = AgentNames.sanitize(agentName)
-        require(AgentNames.isValid(name)) { "Agent name must be 2-128 letters, digits, '.', '_' or '-'" }
-        val groupList = groups.split(',').map { it.trim() }.filter { it.isNotEmpty() }
-        require(groupList.all { GROUP_NAME.matches(it) }) {
-            "Group names may only use letters, digits, '.', '_' or '-' (separate groups with commas)"
-        }
-        return ManagerConfig(
-            host = host,
-            enrollPort = enrollPort,
-            port = port,
-            password = password,
-            agentName = name,
-            groups = groupList.joinToString(","),
-            keepaliveSeconds = keepalive,
-        )
-    }
-
-    private fun parsePort(value: String, label: String): Int =
-        value.trim().toIntOrNull()?.takeIf { it in 1..65535 }
-            ?: throw IllegalArgumentException("$label must be a number from 1 to 65535")
-
-    private companion object {
-        val GROUP_NAME = Regex("^[A-Za-z0-9._-]{1,255}$")
-    }
+    private fun SetupForm.toConfig(): ManagerConfig =
+        validatedManagerConfig(host, enrollPort, port, password, agentName, groups, keepaliveSeconds)
 }

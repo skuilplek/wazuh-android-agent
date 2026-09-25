@@ -1,0 +1,14 @@
+{
+  "android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME": "io.github.hannescoetzee.wazuhagent/io.github.hannescoetzee.wazuhagent.admin.AgentDeviceAdminReceiver",
+  "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION": "https://downloads.example.com/wazuh-agent-0.3.0-release.apk",
+  "android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM": "REPLACE_WITH_BASE64URL_SHA256_OF_SIGNING_CERT",
+  "android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED": true,
+  "android.app.extra.PROVISIONING_ADMIN_EXTRAS_BUNDLE": {
+    "manager_host": "wazuh.example.internal",
+    "enroll_port": "1515",
+    "agent_port": "1514",
+    "enrollment_password": "",
+    "groups": "android",
+    "manager_cert_sha256": "REPLACE_WITH_SHA256_OF_AUTHD_CERT_OR_REMOVE"
+  }
+}

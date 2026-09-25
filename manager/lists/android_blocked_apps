@@ -1,0 +1,5 @@
+com.topjohnwu.magisk:root manager
+eu.chainfire.supersu:root manager
+me.weishu.kernelsu:root manager
+com.kingroot.kinguser:root manager
+com.example.wazuh.test.blocked:scenario test package

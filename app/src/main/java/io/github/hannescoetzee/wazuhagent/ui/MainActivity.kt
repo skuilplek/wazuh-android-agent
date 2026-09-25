@@ -2,12 +2,11 @@ package io.github.hannescoetzee.wazuhagent.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.admin.DevicePolicyManager
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -27,15 +26,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.hannescoetzee.wazuhagent.admin.AgentDeviceAdminReceiver
+import io.github.hannescoetzee.wazuhagent.collectors.Capabilities
+import io.github.hannescoetzee.wazuhagent.collectors.Capability
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
-    private val permissions = mutableStateOf(PermissionState(false, false, false))
+    private val capabilities = mutableStateOf(emptyList<Capability>())
 
     private val requestPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        refreshPermissions()
+        refreshCapabilities()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,12 +56,12 @@ class MainActivity : ComponentActivity() {
                     val ui by viewModel.ui.collectAsStateWithLifecycle()
                     val status by viewModel.status.collectAsStateWithLifecycle()
                     val queueSize by viewModel.queueSize.collectAsStateWithLifecycle()
-                    val perms by permissions
+                    val caps by capabilities
                     SetupScreen(
                         ui = ui,
                         status = status,
                         queueSize = queueSize,
-                        permissions = perms,
+                        capabilities = caps,
                         onFormChange = viewModel::updateForm,
                         onEnroll = viewModel::enroll,
                         onSave = viewModel::saveSettings,
@@ -74,6 +75,7 @@ class MainActivity : ComponentActivity() {
                                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
                             )
                         },
+                        onRequestDeviceAdmin = ::requestDeviceAdmin,
                     )
                 }
             }
@@ -82,17 +84,22 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        refreshPermissions()
+        refreshCapabilities()
     }
 
-    private fun refreshPermissions() {
-        val notifications = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || granted(Manifest.permission.POST_NOTIFICATIONS)
-        val battery = getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
-        permissions.value = PermissionState(notifications, battery, granted(Manifest.permission.ACCESS_FINE_LOCATION))
+    private fun refreshCapabilities() {
+        capabilities.value = Capabilities.check(this)
     }
 
-    private fun granted(permission: String) =
-        ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+    private fun requestDeviceAdmin() {
+        val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+            .putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, AgentDeviceAdminReceiver.component(this))
+            .putExtra(
+                DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                "Lets the agent report failed screen unlock attempts to your Wazuh manager. It cannot lock, wipe or change the phone.",
+            )
+        startActivity(intent)
+    }
 
     private fun requestNotifications() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

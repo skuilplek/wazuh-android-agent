@@ -6,3 +6,14 @@
 {"android":{"type":"package","event_time":"2026-09-24T18:00:00+02:00","action":"installed","package":"org.example.cli","label":"CLI","version":"0.1","version_code":1,"installer":"com.android.shell","installer_type":"adb","sideloaded":true,"system_app":false,"debuggable":true,"detected_by":"broadcast"}}
 {"android":{"type":"network","event_time":"2026-09-24T18:00:00+02:00","connected":true,"transport":"wifi","vpn":false,"validated":true,"metered":false,"captive_portal":false,"wifi_ssid":"CoffeeShop","wifi_security":"open"}}
 {"android":{"type":"agent_log","event_time":"2026-09-24T18:00:00+02:00","level":"error","message":"Posture collection failed"}}
+{"android":{"type":"unlock","event_time":"2026-09-24T18:00:00+02:00","result":"failed","failed_attempts":3}}
+{"android":{"type":"unlock","event_time":"2026-09-24T18:00:00+02:00","result":"failed","failed_attempts":12}}
+{"android":{"type":"unlock","event_time":"2026-09-24T18:00:00+02:00","result":"success","failures_before":3}}
+{"android":{"type":"agent_admin","event_time":"2026-09-24T18:00:00+02:00","action":"disabled"}}
+{"android":{"type":"security_log","event_time":"2026-09-24T18:00:00+02:00","tag":"adb_shell_cmd","logged_at":"2026-09-24T17:58:12+02:00","source":"batch","command":"pm list packages"}}
+{"android":{"type":"security_log","event_time":"2026-09-24T18:00:00+02:00","tag":"cert_authority_installed","logged_at":"2026-09-24T17:58:12+02:00","source":"batch","success":true,"subject":"CN=Intercepting Proxy CA"}}
+{"android":{"type":"security_log","event_time":"2026-09-24T18:00:00+02:00","tag":"logging_stopped","logged_at":"2026-09-24T17:58:12+02:00","source":"pre_reboot"}}
+{"android":{"type":"network_log","event_time":"2026-09-24T18:00:00+02:00","kind":"dns","package":"com.example.spy","hostname":"wazuh-android-test.example.com","addresses":[],"count":4,"first_seen":"2026-09-24T17:10:00+02:00","last_seen":"2026-09-24T17:40:00+02:00"}}
+{"android":{"type":"network_log","event_time":"2026-09-24T18:00:00+02:00","kind":"connect","package":"com.example.tool","ip":"93.184.216.34","port":443,"count":2,"first_seen":"2026-09-24T17:10:00+02:00","last_seen":"2026-09-24T17:11:00+02:00"}}
+{"android":{"type":"package","event_time":"2026-09-24T18:00:00+02:00","action":"installed","package":"com.example.unlisted","label":"Unlisted","version":"3.0","version_code":30,"installer":"com.android.vending","installer_type":"play_store","sideloaded":false,"system_app":false,"debuggable":false,"detected_by":"broadcast"}}
+{"android":{"type":"package","event_time":"2026-09-24T18:00:00+02:00","action":"installed","package":"com.topjohnwu.magisk","label":"Magisk","version":"27.0","version_code":27000,"installer":"com.google.android.packageinstaller","installer_type":"package_installer","sideloaded":true,"system_app":false,"debuggable":false,"detected_by":"broadcast"}}

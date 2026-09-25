@@ -13,7 +13,7 @@
   <!-- Base: any event from the Android agent -->
   <rule id="100200" level="0">
     <decoded_as>json</decoded_as>
-    <field name="android.type" type="pcre2">^(posture|posture_finding|posture_change|package|package_inventory|package_summary|network|agent_log)$</field>
+    <field name="android.type" type="pcre2">^(posture|posture_finding|posture_change|package|package_inventory|package_summary|network|agent_log|unlock|agent_admin|security_log|network_log)$</field>
     <description>Android agent event</description>
   </rule>
 
@@ -188,6 +188,79 @@
     <group>android_package,android_inventory,</group>
   </rule>
 
+  <!-- ===================== Security log (Device Owner only) ===================== -->
+
+  <rule id="100240" level="3">
+    <if_sid>100200</if_sid>
+    <field name="android.type">^security_log$</field>
+    <description>Android security log: $(android.tag)</description>
+    <group>android_security_log,</group>
+  </rule>
+
+  <rule id="100241" level="10">
+    <if_sid>100240</if_sid>
+    <field name="android.tag">^adb_shell_cmd$</field>
+    <description>Android ADB shell command run on the device: $(android.command)</description>
+    <group>android_security_log,android_adb,</group>
+  </rule>
+
+  <rule id="100242" level="10">
+    <if_sid>100240</if_sid>
+    <field name="android.tag">^adb_shell_interactive$</field>
+    <description>Android interactive ADB shell opened on the device</description>
+    <group>android_security_log,android_adb,</group>
+  </rule>
+
+  <rule id="100243" level="10">
+    <if_sid>100240</if_sid>
+    <field name="android.tag" type="pcre2">^(adb_pull|adb_push)$</field>
+    <description>Android file copied over ADB ($(android.tag)): $(android.path)</description>
+    <group>android_security_log,android_adb,</group>
+  </rule>
+
+  <rule id="100244" level="10">
+    <if_sid>100240</if_sid>
+    <field name="android.tag">^cert_authority_installed$</field>
+    <description>Android CA certificate installed (possible TLS interception): $(android.subject)</description>
+    <group>android_security_log,</group>
+  </rule>
+
+  <rule id="100245" level="5">
+    <if_sid>100240</if_sid>
+    <field name="android.tag">^cert_authority_removed$</field>
+    <description>Android CA certificate removed: $(android.subject)</description>
+    <group>android_security_log,</group>
+  </rule>
+
+  <rule id="100246" level="12">
+    <if_sid>100240</if_sid>
+    <field name="android.tag">^logging_stopped$</field>
+    <description>Android security logging was stopped</description>
+    <group>android_security_log,</group>
+  </rule>
+
+  <rule id="100247" level="10">
+    <if_sid>100240</if_sid>
+    <field name="android.tag" type="pcre2">^(key_integrity_violation|wipe_failure|log_buffer_size_critical)$</field>
+    <description>Android security log problem: $(android.tag)</description>
+    <group>android_security_log,</group>
+  </rule>
+
+  <rule id="100248" level="10">
+    <if_sid>100240</if_sid>
+    <field name="android.tag">^crypto_self_test_completed$</field>
+    <field name="android.success">^false$</field>
+    <description>Android cryptographic self-test failed</description>
+    <group>android_security_log,</group>
+  </rule>
+
+  <rule id="100249" level="5">
+    <if_sid>100240</if_sid>
+    <field name="android.tag">^media_mount$</field>
+    <description>Android external storage mounted: $(android.mount_point) $(android.volume_label)</description>
+    <group>android_security_log,</group>
+  </rule>
+
   <!-- ===================== Network ===================== -->
 
   <rule id="100250" level="3">
@@ -223,6 +296,77 @@
     <field name="android.wifi_ssid" type="pcre2">.+</field>
     <description>Android network changed: $(android.transport) $(android.wifi_ssid)</description>
     <group>android_network,</group>
+  </rule>
+
+  <!-- ===================== Network log (Device Owner only) ===================== -->
+  <!-- One event per app and destination per batch. Lower 100256/100257 to level 0 if the volume is too high. -->
+
+  <rule id="100255" level="0">
+    <if_sid>100200</if_sid>
+    <field name="android.type">^network_log$</field>
+    <description>Android network log entry</description>
+    <group>android_network_log,</group>
+  </rule>
+
+  <rule id="100256" level="3">
+    <if_sid>100255</if_sid>
+    <field name="android.kind">^dns$</field>
+    <description>Android DNS lookup by $(android.package): $(android.hostname) ($(android.count)x)</description>
+    <group>android_network_log,</group>
+  </rule>
+
+  <rule id="100257" level="3">
+    <if_sid>100255</if_sid>
+    <field name="android.kind">^connect$</field>
+    <description>Android connection by $(android.package) to $(android.ip):$(android.port) ($(android.count)x)</description>
+    <group>android_network_log,</group>
+  </rule>
+
+  <!-- ===================== Unlock attempts (agent device admin) ===================== -->
+
+  <rule id="100260" level="5">
+    <if_sid>100200</if_sid>
+    <field name="android.type">^unlock$</field>
+    <field name="android.result">^failed$</field>
+    <description>Android failed unlock attempt ($(android.failed_attempts) in a row)</description>
+    <group>android_unlock,authentication_failed,</group>
+  </rule>
+
+  <!-- same_location keeps the count per agent: the location includes the agent name -->
+  <rule id="100261" level="10" frequency="5" timeframe="300">
+    <if_matched_sid>100260</if_matched_sid>
+    <same_location />
+    <description>Android: 5 or more failed unlock attempts within 5 minutes (possible lost or stolen phone)</description>
+    <group>android_unlock,authentication_failures,</group>
+  </rule>
+
+  <rule id="100262" level="10">
+    <if_sid>100260</if_sid>
+    <field name="android.failed_attempts" type="pcre2">^[1-9][0-9]+$</field>
+    <description>Android: $(android.failed_attempts) failed unlock attempts in a row</description>
+    <group>android_unlock,authentication_failures,</group>
+  </rule>
+
+  <rule id="100263" level="3">
+    <if_sid>100200</if_sid>
+    <field name="android.type">^unlock$</field>
+    <field name="android.result">^success$</field>
+    <description>Android unlocked after $(android.failures_before) failed attempts</description>
+    <group>android_unlock,authentication_success,</group>
+  </rule>
+
+  <rule id="100264" level="3">
+    <if_sid>100200</if_sid>
+    <field name="android.type">^agent_admin$</field>
+    <description>Android agent device admin $(android.action)</description>
+    <group>android_agent,</group>
+  </rule>
+
+  <rule id="100265" level="10">
+    <if_sid>100264</if_sid>
+    <field name="android.action">^disabled$</field>
+    <description>Android agent device admin was turned off; failed unlocks are no longer reported</description>
+    <group>android_agent,android_tamper,</group>
   </rule>
 
   <!-- ===================== Agent log ===================== -->
