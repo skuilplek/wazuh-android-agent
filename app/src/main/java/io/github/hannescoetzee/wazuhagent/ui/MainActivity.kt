@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,6 +25,8 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -57,26 +60,38 @@ class MainActivity : ComponentActivity() {
                     val status by viewModel.status.collectAsStateWithLifecycle()
                     val queueSize by viewModel.queueSize.collectAsStateWithLifecycle()
                     val caps by capabilities
-                    SetupScreen(
-                        ui = ui,
-                        status = status,
-                        queueSize = queueSize,
-                        capabilities = caps,
-                        onFormChange = viewModel::updateForm,
-                        onEnroll = viewModel::enroll,
-                        onSave = viewModel::saveSettings,
-                        onStart = viewModel::startAgent,
-                        onStop = viewModel::stopAgent,
-                        onForget = viewModel::forgetEnrollment,
-                        onRequestNotifications = ::requestNotifications,
-                        onRequestBattery = ::requestBatteryExemption,
-                        onRequestLocation = {
-                            requestPermission.launch(
-                                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
-                            )
-                        },
-                        onRequestDeviceAdmin = ::requestDeviceAdmin,
-                    )
+                    var showEvents by rememberSaveable { mutableStateOf(false) }
+                    BackHandler(showEvents) { showEvents = false }
+                    if (showEvents) {
+                        val events by viewModel.recentEvents.collectAsStateWithLifecycle()
+                        EventsScreen(
+                            events = events,
+                            onBack = { showEvents = false },
+                            onClear = viewModel::clearRecentEvents,
+                        )
+                    } else {
+                        SetupScreen(
+                            ui = ui,
+                            status = status,
+                            queueSize = queueSize,
+                            capabilities = caps,
+                            onFormChange = viewModel::updateForm,
+                            onEnroll = viewModel::enroll,
+                            onSave = viewModel::saveSettings,
+                            onStart = viewModel::startAgent,
+                            onStop = viewModel::stopAgent,
+                            onForget = viewModel::forgetEnrollment,
+                            onShowEvents = { showEvents = true },
+                            onRequestNotifications = ::requestNotifications,
+                            onRequestBattery = ::requestBatteryExemption,
+                            onRequestLocation = {
+                                requestPermission.launch(
+                                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+                                )
+                            },
+                            onRequestDeviceAdmin = ::requestDeviceAdmin,
+                        )
+                    }
                 }
             }
         }

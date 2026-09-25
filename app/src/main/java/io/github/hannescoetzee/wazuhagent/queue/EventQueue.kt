@@ -15,21 +15,26 @@ class EventQueue(private val dao: EventDao) {
     val size: Flow<Int> = dao.observeCount()
 
     suspend fun enqueue(event: JSONObject, location: String = LOCATION) {
-        dao.insert(QueuedEvent(location = location, message = truncate(event.toString()), createdAt = System.currentTimeMillis()))
+        val queued = QueuedEvent(location = location, message = truncate(event.toString()), createdAt = System.currentTimeMillis())
+        record(dao.insert(queued), queued, event)
         if (insertsSinceTrim.incrementAndGet() % TRIM_EVERY == 0) dao.trimTo(MAX_EVENTS)
         wakeups.trySend(Unit)
     }
 
     /** For callers that cannot suspend, such as the uncaught-exception handler. */
     fun enqueueBlocking(event: JSONObject, location: String = LOCATION) {
-        dao.insertBlocking(QueuedEvent(location = location, message = truncate(event.toString()), createdAt = System.currentTimeMillis()))
+        val queued = QueuedEvent(location = location, message = truncate(event.toString()), createdAt = System.currentTimeMillis())
+        record(dao.insertBlocking(queued), queued, event)
         wakeups.trySend(Unit)
     }
 
     suspend fun oldest(limit: Int): List<QueuedEvent> = dao.oldest(limit)
 
     suspend fun remove(events: List<QueuedEvent>) {
-        if (events.isNotEmpty()) dao.delete(events.map { it.id })
+        if (events.isEmpty()) return
+        val ids = events.map { it.id }
+        dao.delete(ids)
+        RecentEvents.markSent(ids)
     }
 
     suspend fun clear() = dao.clear()
@@ -40,6 +45,11 @@ class EventQueue(private val dao: EventDao) {
     }
 
     private val insertsSinceTrim = AtomicInteger()
+
+    private fun record(id: Long, queued: QueuedEvent, event: JSONObject) {
+        val type = event.optJSONObject("android")?.optString("type").orEmpty()
+        RecentEvents.record(RecentEvent(id, type, queued.createdAt, queued.message))
+    }
 
     private fun truncate(message: String): String {
         if (message.length <= MAX_MESSAGE_CHARS) return message

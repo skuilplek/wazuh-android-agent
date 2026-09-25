@@ -23,7 +23,9 @@ It reports:
   app. See [Device Owner mode](#device-owner-mode-optional).
 - **Agent log**: the app's own errors and crashes.
 
-Events are queued in a local database while the phone is offline.
+Events are queued in a local database while the phone is offline. **Recent events** in the
+app lists the last 500 events since the app started, whether each was sent yet, and the full
+JSON on tap, with a filter and a pause button.
 
 ## Layout
 

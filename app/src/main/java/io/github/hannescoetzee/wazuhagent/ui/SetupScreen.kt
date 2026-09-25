@@ -43,6 +43,7 @@ fun SetupScreen(
     onStart: () -> Unit,
     onStop: () -> Unit,
     onForget: () -> Unit,
+    onShowEvents: () -> Unit,
     onRequestNotifications: () -> Unit,
     onRequestBattery: () -> Unit,
     onRequestLocation: () -> Unit,
@@ -65,7 +66,7 @@ fun SetupScreen(
             )
         }
 
-        StatusCard(ui, status, queueSize, onStart, onStop)
+        StatusCard(ui, status, queueSize, onStart, onStop, onShowEvents)
 
         ui.message?.let {
             Text(
@@ -178,7 +179,14 @@ private fun CapabilityRow(capability: Capability) {
 }
 
 @Composable
-private fun StatusCard(ui: UiState, status: AgentStatus, queueSize: Int, onStart: () -> Unit, onStop: () -> Unit) {
+private fun StatusCard(
+    ui: UiState,
+    status: AgentStatus,
+    queueSize: Int,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    onShowEvents: () -> Unit,
+) {
     val color = when (status.state) {
         ConnectionState.CONNECTED -> MaterialTheme.colorScheme.primaryContainer
         ConnectionState.WAITING_RETRY -> MaterialTheme.colorScheme.errorContainer
@@ -192,14 +200,15 @@ private fun StatusCard(ui: UiState, status: AgentStatus, queueSize: Int, onStart
                 Text("Last manager ack: ${DateFormat.getTimeInstance().format(Date(status.lastAckAt))}")
             }
             Text("Queued events: $queueSize · sent this session: ${status.eventsSent}")
-            if (ui.enrollment != null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (ui.enrollment != null) {
                     if (ui.agentEnabled) {
                         OutlinedButton(onClick = onStop) { Text("Stop agent") }
                     } else {
                         Button(onClick = onStart) { Text("Start agent") }
                     }
                 }
+                TextButton(onClick = onShowEvents) { Text("Recent events") }
             }
         }
     }

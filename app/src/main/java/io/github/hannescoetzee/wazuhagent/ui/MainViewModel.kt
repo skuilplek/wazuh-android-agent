@@ -7,6 +7,7 @@ import io.github.hannescoetzee.wazuhagent.DeviceInfo
 import io.github.hannescoetzee.wazuhagent.app
 import io.github.hannescoetzee.wazuhagent.collectors.CollectorManager
 import io.github.hannescoetzee.wazuhagent.collectors.PostureWorker
+import io.github.hannescoetzee.wazuhagent.queue.RecentEvents
 import io.github.hannescoetzee.wazuhagent.service.AgentForegroundService
 import io.github.hannescoetzee.wazuhagent.service.AgentState
 import io.github.hannescoetzee.wazuhagent.service.Enroller
@@ -57,6 +58,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val status = AgentState.status
     val queueSize: StateFlow<Int> = queue.size.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    val recentEvents = RecentEvents.events
 
     init {
         viewModelScope.launch {
@@ -115,6 +117,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         AgentForegroundService.stop(getApplication())
         _ui.update { it.copy(agentEnabled = false, message = null) }
     }
+
+    fun clearRecentEvents() = RecentEvents.clear()
 
     /** Drops the local key; the agent must also be removed on the manager to free the name. */
     fun forgetEnrollment() {
