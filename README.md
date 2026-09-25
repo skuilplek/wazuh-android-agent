@@ -23,9 +23,17 @@ It reports:
   app. See [Device Owner mode](#device-owner-mode-optional).
 - **Agent log**: the app's own errors and crashes.
 
-Events are queued in a local database while the phone is offline. **Recent events** in the
+Events are queued in a local database while the phone is offline. The **Events** tab in the
 app lists the last 500 events since the app started, whether each was sent yet, and the full
-JSON on tap, with a filter and a pause button.
+JSON on tap, with search, a filter per event type and a pause button.
+
+## Screenshots
+
+Design mockups of the app. The real screens follow the phone's light or dark mode.
+
+![Status, Events and Settings tabs in light mode](docs/images/mockup-light.png)
+
+<img src="docs/images/mockup-dark-status.png" alt="Status tab in dark mode" width="300">
 
 ## Layout
 
@@ -58,10 +66,12 @@ echo "sdk.dir=$ANDROID_HOME" > local.properties
 
 1. On the phone, enable **Developer options > USB debugging** and connect it by USB.
 2. Run `$ANDROID_HOME/platform-tools/adb install -r app/build/outputs/apk/debug/wazuh-agent-*-debug.apk`.
-3. Open **Wazuh Agent** and enter the manager address. Add the enrollment password if the
-   manager uses one, then tap **Enroll**.
+3. Open **Wazuh Agent**. It opens on the **Settings** tab until the phone is enrolled. Enter
+   the manager address, add the enrollment password if the manager uses one, then tap
+   **Enroll**.
 4. Allow the notification, and allow the app to run unrestricted in the background so
-   Android does not kill the connection.
+   Android does not kill the connection. The **Status** tab lists anything still missing
+   under **Needs attention**.
 5. Optionally, tap **Allow** next to **Device admin** to report failed unlock attempts. The
    admin only uses the "watch login" policy: it cannot lock, wipe or change the phone. If it
    is turned off later, the manager gets an alert (rule 100265).

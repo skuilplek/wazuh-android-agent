@@ -47,6 +47,7 @@ data class UiState(
     val message: String? = null,
     val isError: Boolean = false,
     val agentEnabled: Boolean = false,
+    val loaded: Boolean = false,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -69,6 +70,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     form = loaded.first?.toForm() ?: state.form,
                     enrollment = loaded.second,
                     agentEnabled = loaded.third,
+                    loaded = true,
                 )
             }
         }
@@ -119,6 +121,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun clearRecentEvents() = RecentEvents.clear()
+
+    fun consumeMessage(message: String) = _ui.update { if (it.message == message) it.copy(message = null) else it }
 
     /** Drops the local key; the agent must also be removed on the manager to free the name. */
     fun forgetEnrollment() {

@@ -9,30 +9,16 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.hannescoetzee.wazuhagent.admin.AgentDeviceAdminReceiver
 import io.github.hannescoetzee.wazuhagent.collectors.Capabilities
 import io.github.hannescoetzee.wazuhagent.collectors.Capability
+import io.github.hannescoetzee.wazuhagent.ui.theme.WazuhTheme
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
@@ -42,57 +28,22 @@ class MainActivity : ComponentActivity() {
         refreshCapabilities()
     }
 
+    private val permissions = PermissionActions(
+        notifications = ::requestNotifications,
+        battery = ::requestBatteryExemption,
+        location = {
+            requestPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+        },
+        deviceAdmin = ::requestDeviceAdmin,
+    )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val context = LocalContext.current
-            val dark = isSystemInDarkTheme()
-            val colors = when {
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
-                    if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-                dark -> darkColorScheme()
-                else -> lightColorScheme()
-            }
-            MaterialTheme(colorScheme = colors) {
-                Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
-                    val ui by viewModel.ui.collectAsStateWithLifecycle()
-                    val status by viewModel.status.collectAsStateWithLifecycle()
-                    val queueSize by viewModel.queueSize.collectAsStateWithLifecycle()
-                    val caps by capabilities
-                    var showEvents by rememberSaveable { mutableStateOf(false) }
-                    BackHandler(showEvents) { showEvents = false }
-                    if (showEvents) {
-                        val events by viewModel.recentEvents.collectAsStateWithLifecycle()
-                        EventsScreen(
-                            events = events,
-                            onBack = { showEvents = false },
-                            onClear = viewModel::clearRecentEvents,
-                        )
-                    } else {
-                        SetupScreen(
-                            ui = ui,
-                            status = status,
-                            queueSize = queueSize,
-                            capabilities = caps,
-                            onFormChange = viewModel::updateForm,
-                            onEnroll = viewModel::enroll,
-                            onSave = viewModel::saveSettings,
-                            onStart = viewModel::startAgent,
-                            onStop = viewModel::stopAgent,
-                            onForget = viewModel::forgetEnrollment,
-                            onShowEvents = { showEvents = true },
-                            onRequestNotifications = ::requestNotifications,
-                            onRequestBattery = ::requestBatteryExemption,
-                            onRequestLocation = {
-                                requestPermission.launch(
-                                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
-                                )
-                            },
-                            onRequestDeviceAdmin = ::requestDeviceAdmin,
-                        )
-                    }
-                }
+            WazuhTheme {
+                val caps by capabilities
+                AppScaffold(viewModel = viewModel, capabilities = caps, permissions = permissions)
             }
         }
     }
