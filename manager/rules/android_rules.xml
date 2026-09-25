@@ -1,0 +1,258 @@
+<!--
+  Rules for events sent by the Wazuh Android agent.
+
+  Events arrive with location "android" as JSON: {"android": {"type": "...", ...}}
+  and are decoded by the stock "json" decoder. A custom decoder is not used because the
+  stock decoder (prematch ^{\s*") always matches JSON logs first.
+
+  Install: copy to /var/ossec/etc/rules/android_rules.xml and restart the manager.
+  IDs 100200-100299.
+-->
+<group name="android,">
+
+  <!-- Base: any event from the Android agent -->
+  <rule id="100200" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="android.type" type="pcre2">^(posture|posture_finding|posture_change|package|package_inventory|package_summary|network|agent_log)$</field>
+    <description>Android agent event</description>
+  </rule>
+
+  <!-- ===================== Posture ===================== -->
+
+  <rule id="100210" level="3">
+    <if_sid>100200</if_sid>
+    <field name="android.type">^posture$</field>
+    <description>Android posture report from $(android.manufacturer) $(android.model) (Android $(android.android_release), patch $(android.security_patch))</description>
+    <group>android_posture,</group>
+  </rule>
+
+  <!-- One event per failing check, so every problem raises its own alert -->
+  <rule id="100211" level="4">
+    <if_sid>100200</if_sid>
+    <field name="android.type">^posture_finding$</field>
+    <description>Android posture issue ($(android.check)): $(android.detail)</description>
+    <group>android_posture,</group>
+  </rule>
+
+  <rule id="100212" level="10">
+    <if_sid>100211</if_sid>
+    <field name="android.check">^screen_lock$</field>
+    <description>Android device has no screen lock (PIN, pattern or password)</description>
+    <group>android_posture,pci_dss_8.2,gdpr_IV_32.2,</group>
+  </rule>
+
+  <rule id="100213" level="10">
+    <if_sid>100211</if_sid>
+    <field name="android.check">^encryption$</field>
+    <description>Android storage encryption problem: $(android.detail)</description>
+    <group>android_posture,pci_dss_3.4,gdpr_IV_32.1,</group>
+  </rule>
+
+  <rule id="100214" level="12">
+    <if_sid>100211</if_sid>
+    <field name="android.check">^root$</field>
+    <description>Android device appears rooted. $(android.detail)</description>
+    <group>android_posture,android_root,</group>
+  </rule>
+
+  <rule id="100215" level="10">
+    <if_sid>100211</if_sid>
+    <field name="android.check">^adb_wifi$</field>
+    <description>Android wireless debugging (ADB over Wi-Fi) is enabled</description>
+    <group>android_posture,</group>
+  </rule>
+
+  <rule id="100216" level="8">
+    <if_sid>100211</if_sid>
+    <field name="android.check">^adb$</field>
+    <description>Android USB debugging (ADB) is enabled</description>
+    <group>android_posture,</group>
+  </rule>
+
+  <rule id="100217" level="5">
+    <if_sid>100211</if_sid>
+    <field name="android.check">^developer_options$</field>
+    <description>Android developer options are enabled</description>
+    <group>android_posture,</group>
+  </rule>
+
+  <rule id="100218" level="7">
+    <if_sid>100211</if_sid>
+    <field name="android.check">^security_patch$</field>
+    <description>Android security patch is older than 90 days. $(android.detail)</description>
+    <group>android_posture,vulnerability,</group>
+  </rule>
+
+  <rule id="100219" level="10">
+    <if_sid>100211</if_sid>
+    <field name="android.check">^verified_boot$</field>
+    <description>Android bootloader unlocked or boot image modified. $(android.detail)</description>
+    <group>android_posture,android_root,</group>
+  </rule>
+
+  <rule id="100220" level="5">
+    <if_sid>100211</if_sid>
+    <field name="android.check">^emulator$</field>
+    <description>Android agent is running on an emulator</description>
+    <group>android_posture,</group>
+  </rule>
+
+  <!-- Changes to lists that stalkerware and malware typically abuse -->
+  <rule id="100221" level="6">
+    <if_sid>100200</if_sid>
+    <field name="android.type">^posture_change$</field>
+    <description>Android $(android.field) changed. Added: $(android.added) Removed: $(android.removed)</description>
+    <group>android_posture,</group>
+  </rule>
+
+  <rule id="100222" level="9">
+    <if_sid>100221</if_sid>
+    <field name="android.field">^accessibility_services$</field>
+    <description>Android accessibility services changed. Added: $(android.added) Removed: $(android.removed)</description>
+    <group>android_posture,android_stalkerware,</group>
+  </rule>
+
+  <rule id="100223" level="9">
+    <if_sid>100221</if_sid>
+    <field name="android.field">^device_admins$</field>
+    <description>Android device administrator apps changed. Added: $(android.added) Removed: $(android.removed)</description>
+    <group>android_posture,android_stalkerware,</group>
+  </rule>
+
+  <rule id="100224" level="7">
+    <if_sid>100221</if_sid>
+    <field name="android.field">^sideload_capable_apps$</field>
+    <description>Android apps able to install other apps changed. Added: $(android.added) Removed: $(android.removed)</description>
+    <group>android_posture,</group>
+  </rule>
+
+  <!-- ===================== Packages ===================== -->
+
+  <rule id="100230" level="3">
+    <if_sid>100200</if_sid>
+    <field name="android.type">^package$</field>
+    <description>Android app $(android.action): $(android.label) ($(android.package) $(android.version))</description>
+    <group>android_package,</group>
+  </rule>
+
+  <rule id="100231" level="8">
+    <if_sid>100230</if_sid>
+    <field name="android.action" type="pcre2">^(installed|updated)$</field>
+    <field name="android.sideloaded">^true$</field>
+    <description>Android app $(android.action) from outside an app store: $(android.package) via $(android.installer_type)</description>
+    <group>android_package,android_sideload,</group>
+  </rule>
+
+  <rule id="100232" level="9">
+    <if_sid>100231</if_sid>
+    <field name="android.installer_type">^adb$</field>
+    <description>Android app installed over ADB: $(android.package)</description>
+    <group>android_package,android_sideload,</group>
+  </rule>
+
+  <rule id="100233" level="5">
+    <if_sid>100230</if_sid>
+    <field name="android.action">^removed$</field>
+    <field name="android.installer_type" type="pcre2">^(?!play_store$|oem_store$|fdroid$)</field>
+    <description>Android app installed from outside an app store was removed: $(android.package)</description>
+    <group>android_package,</group>
+  </rule>
+
+  <rule id="100234" level="7">
+    <if_sid>100230</if_sid>
+    <field name="android.action" type="pcre2">^(installed|updated)$</field>
+    <field name="android.debuggable">^true$</field>
+    <field name="android.system_app">^false$</field>
+    <description>Debuggable Android app installed: $(android.package)</description>
+    <group>android_package,</group>
+  </rule>
+
+  <rule id="100235" level="3">
+    <if_sid>100200</if_sid>
+    <field name="android.type">^package_inventory$</field>
+    <description>Android app inventory: $(android.label) ($(android.package) $(android.version))</description>
+    <group>android_package,android_inventory,</group>
+  </rule>
+
+  <rule id="100236" level="6">
+    <if_sid>100235</if_sid>
+    <field name="android.sideloaded">^true$</field>
+    <description>Android app present that was not installed from an app store: $(android.package) via $(android.installer_type)</description>
+    <group>android_package,android_inventory,android_sideload,</group>
+  </rule>
+
+  <rule id="100237" level="3">
+    <if_sid>100200</if_sid>
+    <field name="android.type">^package_summary$</field>
+    <description>Android app summary: $(android.total) apps, $(android.sideloaded_count) not from an app store</description>
+    <group>android_package,android_inventory,</group>
+  </rule>
+
+  <!-- ===================== Network ===================== -->
+
+  <rule id="100250" level="3">
+    <if_sid>100200</if_sid>
+    <field name="android.type">^network$</field>
+    <description>Android network changed: $(android.transport)</description>
+    <group>android_network,</group>
+  </rule>
+
+  <rule id="100251" level="8">
+    <if_sid>100250</if_sid>
+    <field name="android.wifi_security" type="pcre2">^(open|wep)$</field>
+    <description>Android connected to an insecure Wi-Fi network ($(android.wifi_security)) $(android.wifi_ssid)</description>
+    <group>android_network,</group>
+  </rule>
+
+  <rule id="100252" level="4">
+    <if_sid>100250</if_sid>
+    <field name="android.vpn">^true$</field>
+    <description>Android VPN active ($(android.transport))</description>
+    <group>android_network,</group>
+  </rule>
+
+  <rule id="100253" level="5">
+    <if_sid>100250</if_sid>
+    <field name="android.captive_portal">^true$</field>
+    <description>Android network requires a captive portal login</description>
+    <group>android_network,</group>
+  </rule>
+
+  <rule id="100254" level="3">
+    <if_sid>100250</if_sid>
+    <field name="android.wifi_ssid" type="pcre2">.+</field>
+    <description>Android network changed: $(android.transport) $(android.wifi_ssid)</description>
+    <group>android_network,</group>
+  </rule>
+
+  <!-- ===================== Agent log ===================== -->
+
+  <rule id="100270" level="3">
+    <if_sid>100200</if_sid>
+    <field name="android.type">^agent_log$</field>
+    <description>Android agent: $(android.message)</description>
+    <group>android_agent,</group>
+  </rule>
+
+  <rule id="100271" level="5">
+    <if_sid>100270</if_sid>
+    <field name="android.level" type="pcre2">^(warning|error)$</field>
+    <description>Android agent $(android.level): $(android.message)</description>
+    <group>android_agent,</group>
+  </rule>
+
+  <rule id="100272" level="7">
+    <if_sid>100270</if_sid>
+    <field name="android.level">^crash$</field>
+    <description>Android agent crashed: $(android.exception) $(android.exception_message)</description>
+    <group>android_agent,</group>
+  </rule>
+
+  <rule id="100280" level="4">
+    <if_sid>100200</if_sid>
+    <field name="android.truncated">^true$</field>
+    <description>Android agent dropped an oversized $(android.type) event ($(android.original_size) bytes)</description>
+    <group>android_agent,</group>
+  </rule>
+
+</group>

@@ -1,0 +1,8 @@
+{"android":{"type":"posture_finding","event_time":"2026-09-24T18:00:00+02:00","check":"screen_lock","detail":"No PIN, pattern or password is set","new":true}}
+{"android":{"type":"posture_finding","event_time":"2026-09-24T18:00:00+02:00","check":"adb","detail":"USB debugging is enabled","new":true}}
+{"android":{"type":"posture_finding","event_time":"2026-09-24T18:00:00+02:00","check":"security_patch","detail":"Security patch 2025-01-05 is 627 days old","new":false}}
+{"android":{"type":"posture_change","event_time":"2026-09-24T18:00:00+02:00","field":"accessibility_services","added":["com.example.spy/.SpyService"],"removed":[],"current":["com.example.spy/.SpyService"]}}
+{"android":{"type":"package","event_time":"2026-09-24T18:00:00+02:00","action":"installed","package":"com.example.tool","label":"Tool","version":"1.2","version_code":12,"installer":"com.google.android.packageinstaller","installer_type":"package_installer","sideloaded":true,"system_app":false,"debuggable":false,"detected_by":"broadcast"}}
+{"android":{"type":"package","event_time":"2026-09-24T18:00:00+02:00","action":"installed","package":"org.example.cli","label":"CLI","version":"0.1","version_code":1,"installer":"com.android.shell","installer_type":"adb","sideloaded":true,"system_app":false,"debuggable":true,"detected_by":"broadcast"}}
+{"android":{"type":"network","event_time":"2026-09-24T18:00:00+02:00","connected":true,"transport":"wifi","vpn":false,"validated":true,"metered":false,"captive_portal":false,"wifi_ssid":"CoffeeShop","wifi_security":"open"}}
+{"android":{"type":"agent_log","event_time":"2026-09-24T18:00:00+02:00","level":"error","message":"Posture collection failed"}}
