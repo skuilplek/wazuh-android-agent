@@ -138,7 +138,7 @@
         <div>
           <h2>What it cannot see</h2>
           <p>Without root, the agent cannot read the system logcat, monitor system file integrity, or see other apps’ data. Security log and network log events need Device Owner mode, which needs a factory-reset phone. Failed unlocks are reported only while the agent’s device admin is on.</p>
-          <p>Remote upgrades (WPK), active response, and remote configuration queries are not supported. Some OEM builds kill background services even with the battery exemption. On those phones, also allow-list the app in the vendor’s battery settings.</p>
+          <p>Remote upgrades (WPK) and remote configuration queries are not supported. A Device Owner phone can run a fixed set of containment commands from the manager. Some OEM builds kill background services even with the battery exemption. On those phones, also allow-list the app in the vendor’s battery settings.</p>
           <p class="next">
             <span>Next</span>
             <a href="install.html">Install on a phone</a>

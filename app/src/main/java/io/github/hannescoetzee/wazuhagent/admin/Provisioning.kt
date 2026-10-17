@@ -38,6 +38,10 @@ object Provisioning {
             return
         }
         store.config = config
+        if (orgPolicyRequested(extras.text("org_policy"))) {
+            runCatching { OrgPolicy.setEnabled(context, true) }
+                .onFailure { AgentLog.error("Could not turn on organization policy", it) }
+        }
         runCatching { Enroller.enroll(context, config, extras.text("manager_cert_sha256").ifBlank { null }) }
             .onFailure { AgentLog.error("Enrollment from provisioning extras failed; enroll from the app instead", it) }
     }

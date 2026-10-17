@@ -13,7 +13,7 @@
   <!-- Base: any event from the Android agent -->
   <rule id="100200" level="0">
     <decoded_as>json</decoded_as>
-    <field name="android.type" type="pcre2">^(posture|posture_finding|posture_change|package|package_inventory|package_summary|network|agent_log|unlock|agent_admin|security_log|network_log|process_snapshot)$</field>
+    <field name="android.type" type="pcre2">^(posture|posture_finding|posture_change|package|package_inventory|package_summary|network|agent_log|unlock|agent_admin|security_log|network_log|process_snapshot|threat_intel|response|location)$</field>
     <description>Android agent event</description>
   </rule>
 
@@ -254,6 +254,27 @@
     <group>android_security_log,</group>
   </rule>
 
+  <rule id="100268" level="5">
+    <if_sid>100240</if_sid>
+    <field name="android.tag">^app_apk_hash$</field>
+    <description>Android APK hash is new or changed: $(android.process) $(android.apk_sha256)</description>
+    <group>android_security_log,</group>
+  </rule>
+
+  <rule id="100266" level="5">
+    <if_sid>100240</if_sid>
+    <field name="android.tag">^backup_service_toggled$</field>
+    <description>Android backup service enabled=$(android.enabled) by $(android.admin_package)</description>
+    <group>android_security_log,</group>
+  </rule>
+
+  <rule id="100267" level="6">
+    <if_sid>100240</if_sid>
+    <field name="android.tag">^key_import$</field>
+    <description>Android keystore key imported: $(android.key_alias)</description>
+    <group>android_security_log,</group>
+  </rule>
+
   <rule id="100249" level="5">
     <if_sid>100240</if_sid>
     <field name="android.tag">^media_mount$</field>
@@ -421,6 +442,76 @@
     <field name="android.mem_used_percent" type="pcre2">^(9[0-9]|100)$</field>
     <description>Android memory $(android.mem_used_percent)% used ($(android.mem_available_mb) MB free)</description>
     <group>android_process,</group>
+  </rule>
+
+  <!-- ===================== Threat intel (manager integrator) ===================== -->
+  <!-- custom-android-intel injects these. They are not sent by the phone. -->
+
+  <rule id="100225" level="3">
+    <if_sid>100200</if_sid>
+    <field name="android.type">^threat_intel$</field>
+    <description>Android threat intel ($(android.kind)): $(android.indicator)</description>
+    <group>android_threat_intel,</group>
+  </rule>
+
+  <rule id="100226" level="12">
+    <if_sid>100225</if_sid>
+    <field name="android.kind">^hash$</field>
+    <description>Android $(android.indicator_type) matched $(android.source): $(android.package) $(android.indicator)</description>
+    <group>android_threat_intel,threat_intel,</group>
+  </rule>
+
+  <rule id="100227" level="10">
+    <if_sid>100225</if_sid>
+    <field name="android.kind">^host$</field>
+    <description>Android connection to a listed host ($(android.source)): $(android.package) $(android.indicator)</description>
+    <group>android_threat_intel,threat_intel,</group>
+  </rule>
+
+  <rule id="100228" level="8">
+    <if_sid>100225</if_sid>
+    <field name="android.kind">^bulletin$</field>
+    <description>Android $(android.android_release) patch $(android.security_patch) is missing $(android.cve_count) bulletin CVEs</description>
+    <group>android_threat_intel,vulnerability,</group>
+  </rule>
+
+  <!-- ===================== Device Owner commands ===================== -->
+
+  <rule id="100273" level="3">
+    <if_sid>100200</if_sid>
+    <field name="android.type">^response$</field>
+    <description>Android command $(android.command) $(android.result): $(android.detail)</description>
+    <group>android_response,</group>
+  </rule>
+
+  <rule id="100274" level="5">
+    <if_sid>100273</if_sid>
+    <field name="android.result" type="pcre2">^(error|denied)$</field>
+    <description>Android command $(android.command) $(android.result): $(android.detail)</description>
+    <group>android_response,</group>
+  </rule>
+
+  <rule id="100275" level="12">
+    <if_sid>100273</if_sid>
+    <field name="android.command">^android-wipe$</field>
+    <field name="android.result">^ok$</field>
+    <description>Android device wipe started</description>
+    <group>android_response,</group>
+  </rule>
+
+  <rule id="100276" level="8">
+    <if_sid>100273</if_sid>
+    <field name="android.command">^android-lock$</field>
+    <field name="android.result">^ok$</field>
+    <description>Android device locked</description>
+    <group>android_response,</group>
+  </rule>
+
+  <rule id="100281" level="3">
+    <if_sid>100200</if_sid>
+    <field name="android.type">^location$</field>
+    <description>Android location from $(android.provider) ($(android.accuracy_m) m)</description>
+    <group>android_location,</group>
   </rule>
 
 </group>

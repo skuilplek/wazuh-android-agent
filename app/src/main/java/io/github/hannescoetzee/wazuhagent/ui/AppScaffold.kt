@@ -136,6 +136,7 @@ fun AppScaffold(
                         onEnroll = viewModel::enroll,
                         onSave = viewModel::saveSettings,
                         onForget = viewModel::forgetEnrollment,
+                        onOrgPolicy = viewModel::setOrgPolicy,
                     )
                 }
             }

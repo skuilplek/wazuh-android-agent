@@ -16,6 +16,7 @@ import android.os.SystemClock
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import io.github.hannescoetzee.wazuhagent.DeviceInfo
+import io.github.hannescoetzee.wazuhagent.admin.DeviceCommands
 import io.github.hannescoetzee.wazuhagent.app
 import io.github.hannescoetzee.wazuhagent.collectors.AgentLog
 import io.github.hannescoetzee.wazuhagent.collectors.CollectorManager
@@ -23,6 +24,7 @@ import io.github.hannescoetzee.wazuhagent.protocol.AgentConnection
 import io.github.hannescoetzee.wazuhagent.protocol.AgentIdentity
 import io.github.hannescoetzee.wazuhagent.protocol.ProtocolException
 import io.github.hannescoetzee.wazuhagent.protocol.SenderCounter
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -179,6 +181,17 @@ class AgentForegroundService : Service() {
                     }
                     override fun onSharedFileReceived(name: String, md5: String) {
                         if (name == "merged.mg") store.mergedSum = md5
+                    }
+                    override fun onExec(payload: String) {
+                        scope.launch {
+                            try {
+                                DeviceCommands.handle(this@AgentForegroundService, app.queue, payload)
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                AgentLog.error("Device command failed", e)
+                            }
+                        }
                     }
                 },
             )

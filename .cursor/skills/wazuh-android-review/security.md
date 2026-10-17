@@ -25,7 +25,7 @@ Review only the areas this agent actually has. Skip authentication flows and tam
 ## Platform
 
 - `AgentForegroundService` and `BootReceiver` stay `exported="false"`. `MainActivity` is the only exported launcher. `ProvisioningActivity` and `AgentDeviceAdminReceiver` stay exported only with `android.permission.BIND_DEVICE_ADMIN`.
-- A new `exported="true"` component without a signature or system permission is a finding. Pending intents stay `FLAG_IMMUTABLE`.
+- A new `exported="true"` component without a signature or system permission is a finding. Pending intents stay `FLAG_IMMUTABLE`. The uninstall result in `DeviceCommands` is the exception: `PackageInstaller` writes the status into the intent, which an immutable PendingIntent drops. That intent is limited to the agent package and the receiver is not exported.
 - A new permission needs a collector or service behavior that requires it. `QUERY_ALL_PACKAGES` is the package inventory. Location is the Wi-Fi name. Exact-alarm and battery permissions are the background restart. Do not add SMS, contacts, microphone, camera, or overlay permissions.
 - `device_admin.xml` is covered by [invariants.md](invariants.md). Device Owner logging is enabled only from `DeviceOwner.enableLogging` while `isDeviceOwner` is true.
 

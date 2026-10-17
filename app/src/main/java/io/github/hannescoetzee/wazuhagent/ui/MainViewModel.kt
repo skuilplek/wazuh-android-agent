@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.hannescoetzee.wazuhagent.DeviceInfo
+import io.github.hannescoetzee.wazuhagent.admin.OrgPolicy
 import io.github.hannescoetzee.wazuhagent.app
 import io.github.hannescoetzee.wazuhagent.collectors.CollectorManager
 import io.github.hannescoetzee.wazuhagent.collectors.PostureWorker
@@ -40,6 +41,13 @@ data class EnrollmentInfo(
     val certSha256: String?,
 )
 
+private data class Loaded(
+    val config: ManagerConfig?,
+    val enrollment: EnrollmentInfo?,
+    val agentEnabled: Boolean,
+    val orgPolicy: Boolean,
+)
+
 data class UiState(
     val form: SetupForm = SetupForm(),
     val enrollment: EnrollmentInfo? = null,
@@ -47,6 +55,7 @@ data class UiState(
     val message: String? = null,
     val isError: Boolean = false,
     val agentEnabled: Boolean = false,
+    val orgPolicy: Boolean = false,
     val loaded: Boolean = false,
 )
 
@@ -63,13 +72,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            val loaded = withContext(Dispatchers.IO) { Triple(store.config, enrollmentInfo(), store.agentEnabled) }
-            if (loaded.second != null && loaded.third) AgentForegroundService.start(getApplication())
+            val loaded = withContext(Dispatchers.IO) {
+                Loaded(store.config, enrollmentInfo(), store.agentEnabled, OrgPolicy.isEnabled(getApplication()))
+            }
+            if (loaded.enrollment != null && loaded.agentEnabled) AgentForegroundService.start(getApplication())
             _ui.update { state ->
                 state.copy(
-                    form = loaded.first?.toForm() ?: state.form,
-                    enrollment = loaded.second,
-                    agentEnabled = loaded.third,
+                    form = loaded.config?.toForm() ?: state.form,
+                    enrollment = loaded.enrollment,
+                    agentEnabled = loaded.agentEnabled,
+                    orgPolicy = loaded.orgPolicy,
                     loaded = true,
                 )
             }
@@ -118,6 +130,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun stopAgent() {
         AgentForegroundService.stop(getApplication())
         _ui.update { it.copy(agentEnabled = false, message = null) }
+    }
+
+    fun setOrgPolicy(enabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val failure = runCatching { OrgPolicy.setEnabled(getApplication(), enabled) }.exceptionOrNull()
+            _ui.update {
+                it.copy(
+                    orgPolicy = OrgPolicy.isEnabled(getApplication()),
+                    message = failure?.message ?: if (enabled) "Organization policy is on." else "Organization policy is off.",
+                    isError = failure != null,
+                )
+            }
+        }
     }
 
     fun clearRecentEvents() = RecentEvents.clear()

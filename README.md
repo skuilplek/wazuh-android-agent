@@ -10,8 +10,9 @@ It reports:
 - **Posture**: screen lock, encryption, patch age, developer options, USB and wireless
   debugging, root and emulator indicators, verified boot, and device admin, accessibility
   and notification-listener apps.
-- **Apps**: installs, updates and removals, with the installer, sideload flag and granted
-  dangerous permissions. The first run after enrollment sends a full inventory.
+- **Apps**: installs, updates and removals, with the installer, sideload flag, granted
+  dangerous permissions, and the signer SHA-256. A new or updated app, and the first
+  inventory, also include the APK SHA-256. Later reconciles do not hash unchanged apps.
 - **Network**: changes in transport, VPN, addresses, DNS and Wi-Fi security. The Wi-Fi name
   is only included if you grant location permission.
 - **Failed unlocks**: each wrong PIN, pattern or password, if you turn on the agent's device
@@ -19,8 +20,9 @@ It reports:
 - **Capabilities**: what the agent can and cannot see on this phone (device admin, Device
   Owner, location, Usage Access, battery exemption), sent with each posture report and shown in the app.
 - **Security and network logs** (Device Owner phones only): ADB shell commands, CA
-  certificate installs, logging stopped, storage mounts, and DNS lookups and connections per
-  app. See [Device Owner mode](#device-owner-mode-optional).
+  certificate installs, logging stopped, storage mounts, Bluetooth connections, keystore
+  keys, backup changes, package installs the broadcast missed, an APK hash when it changes,
+  and DNS lookups and connections per app. See [Device Owner mode](#device-owner-mode-optional).
 - **Processes and memory**: RAM and swap every 15 minutes. On a rooted phone, the processes
   using the most memory. Otherwise, with Usage Access, the foreground app, recent apps and
   foreground services on Android 10 and newer. Usage Access does not include memory per app.
@@ -120,8 +122,15 @@ finding while it is on.
 ## Device Owner mode (optional)
 
 On a phone dedicated to the agent, you can make it the Device Owner. The agent then turns on
-Android's security log and network log. It sets no other policy. This needs a factory-reset
-phone with no Google or other accounts added.
+Android's security log and network log. It sets no other policy unless you turn on
+**Organization policy** in Settings, or set `org_policy` to `true` in the QR extras. That
+blocks sideloading, installs system updates when they are published, and requires a medium
+screen lock. This needs a factory-reset phone with no Google or other accounts added.
+
+The manager can ask a Device Owner phone to suspend, hide, clear, or uninstall an app, lock
+the phone, or report its location for that command only. A wipe runs only when the command's
+extra arguments include `confirm-wipe`. The phone ignores every other active-response
+command, and a device admin that is not Device Owner cannot run any of them.
 
 With adb, after installing the app on the freshly reset phone:
 
@@ -157,7 +166,8 @@ it Device Owner and enrolls with the manager without anyone typing the settings.
        | xxd -r -p | base64 | tr '+/' '-_' | tr -d '='
      ```
    - The admin extras: `manager_host`, `enroll_port`, `agent_port`, `enrollment_password`,
-     `groups`, and optionally `agent_name` and `keepalive_seconds`.
+     `groups`, and optionally `agent_name`, `keepalive_seconds`, and `org_policy` (`true` to
+     turn on the organization policy above).
    - `manager_cert_sha256`: the SHA-256 of the manager's authd certificate, so the first
      enrollment is pinned instead of trusting whatever certificate it sees. Get it with
      `openssl x509 -in /var/ossec/etc/sslmanager.cert -noout -fingerprint -sha256`.
@@ -182,7 +192,7 @@ Without root, the agent cannot read the system logcat, monitor system file integ
 see other apps' data. The per-process list and memory per process need root. Without root
 and without Usage Access, only system RAM and swap are reported. Security log and network
 log events need Device Owner mode, which needs a factory-reset phone. Failed unlocks are only reported while the agent's device
-admin is on. Remote upgrades (WPK), active response and remote configuration
-queries are not supported. Some OEM builds kill background services aggressively even with
+admin is on. Remote upgrades (WPK) and remote configuration queries are not supported.
+Active response is limited to the Device Owner commands above. Some OEM builds kill background services aggressively even with
 the battery exemption. On those phones, also allow-list the app in the vendor's battery
 settings.

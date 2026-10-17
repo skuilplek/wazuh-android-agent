@@ -2,6 +2,7 @@
   Optional rules that check Android agent events against CDB lists on the manager:
 
     etc/lists/android_blocked_apps         package names that must never be installed
+    etc/lists/android_blocked_signers      signer SHA-256 digests that must never be installed
     etc/lists/android_approved_apps        user apps that are expected on the phones
     etc/lists/android_suspicious_domains   hostnames to flag in Device Owner DNS logs
 
@@ -26,6 +27,24 @@
     <if_sid>100235, 100236</if_sid>
     <list field="android.package" lookup="match_key">etc/lists/android_blocked_apps</list>
     <description>Blocked Android app present: $(android.package)</description>
+    <group>android_package,android_inventory,android_blocked_app,</group>
+  </rule>
+
+  <!-- Signer digest, lowercase hex. A repackaged app keeps its certificate when the package name changes.
+       signer_sha256 is the current certificate, or the first when several sign the APK.
+       custom-android-intel checks every digest in the signers array. -->
+  <rule id="100293" level="12">
+    <if_sid>100230, 100231, 100232, 100234</if_sid>
+    <field name="android.action" type="pcre2">^(installed|updated)$</field>
+    <list field="android.signer_sha256" lookup="match_key">etc/lists/android_blocked_signers</list>
+    <description>Blocked Android signer $(android.action): $(android.package) $(android.signer_sha256)</description>
+    <group>android_package,android_blocked_app,</group>
+  </rule>
+
+  <rule id="100294" level="12">
+    <if_sid>100235, 100236</if_sid>
+    <list field="android.signer_sha256" lookup="match_key">etc/lists/android_blocked_signers</list>
+    <description>Blocked Android signer present: $(android.package) $(android.signer_sha256)</description>
     <group>android_package,android_inventory,android_blocked_app,</group>
   </rule>
 

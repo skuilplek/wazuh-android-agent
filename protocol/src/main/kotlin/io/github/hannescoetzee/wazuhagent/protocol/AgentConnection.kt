@@ -31,6 +31,8 @@ class AgentConnection(
         fun onForceReconnect() {}
         /** Manager pushed a new shared config (merged.mg); report this sum in future keepalives. */
         fun onSharedFileReceived(name: String, md5: String) {}
+        /** Active response payload after `#!-execd `, usually a JSON object. */
+        fun onExec(payload: String) {}
         fun onUnhandled(text: String) {}
     }
 
@@ -136,7 +138,7 @@ class AgentConnection(
         }
     }
 
-    private fun handleMessage(text: String) {
+    internal fun handleMessage(text: String) {
         if (!Control.isControl(text)) {
             // File content lines follow an "up file" header.
             if (pendingFile == null) listener.onUnhandled(text)
@@ -158,6 +160,7 @@ class AgentConnection(
             }
             body.startsWith(Control.FORCE_RECONNECT) -> listener.onForceReconnect()
             body.startsWith(Control.REQUEST) -> replyToRequest(body.removePrefix(Control.REQUEST))
+            body.startsWith(Control.EXECD) -> listener.onExec(body.removePrefix(Control.EXECD).trim())
             else -> listener.onUnhandled(text)
         }
     }

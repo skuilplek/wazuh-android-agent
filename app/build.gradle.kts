@@ -73,4 +73,14 @@ dependencies {
     implementation(libs.androidx.security.crypto)
 
     testImplementation(libs.junit)
+    // The unit-test android.jar stubs org.json and throws. This jar is the real parser.
+    testImplementation("org.json:json:20240303")
+}
+
+tasks.withType<Test>().configureEach {
+    doFirst {
+        val files = classpath.files.toList()
+        val stubs = files.filter { it.name == "android.jar" || it.name.startsWith("mockable-android") }
+        if (stubs.isNotEmpty()) classpath = project.files(files - stubs.toSet()) + project.files(stubs)
+    }
 }

@@ -1,0 +1,3 @@
+# Signer SHA-256, lowercase hex, one certificate per line. The value after the colon is a note.
+# 100293 and 100294 match android.signer_sha256. The sample below is not a real certificate.
+67a06c5dd50c716460c8d6314a2070d11211f4f34e122227a3209e24d9bcc1f0:sample signer, not a real app

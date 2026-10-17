@@ -72,7 +72,8 @@ enum class EventKind(val color: Color) {
             type.startsWith("package") -> PACKAGE
             type.startsWith("network") -> NETWORK
             type == "security_log" -> SECURITY
-            type == "unlock" || type == "agent_admin" -> DEVICE
+            type == "unlock" || type == "agent_admin" || type == "response" || type == "location" -> DEVICE
+            type == "threat_intel" -> SECURITY
             type == "agent_log" -> AGENT
             type == "process_snapshot" -> PROCESS
             else -> OTHER

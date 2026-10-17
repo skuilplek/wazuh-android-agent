@@ -11,6 +11,7 @@ import io.github.hannescoetzee.wazuhagent.admin.SecurityLogMapper
 import io.github.hannescoetzee.wazuhagent.queue.EventQueue
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.json.JSONObject
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -48,8 +49,16 @@ class SecurityLogCollector(private val context: Context) {
     private suspend fun report(queue: EventQueue, logs: List<SecurityLog.SecurityEvent>, source: String) {
         val watermark = prefs.getLong(KEY_LAST_NANOS, 0)
         val fresh = logs.filter { it.timeNanos > watermark }.sortedBy { it.timeNanos }
+        val hashes = loadHashes()
+        var hashesChanged = false
         fresh.forEach { entry ->
             val mapped = SecurityLogMapper.map(entry.tag, entry.data) ?: return@forEach
+            if (mapped.tag == "app_apk_hash") {
+                val process = mapped.fields["process"] as? String ?: return@forEach
+                val hash = mapped.fields["apk_sha256"] as? String ?: return@forEach
+                if (!rememberApkHash(hashes, process, hash)) return@forEach
+                hashesChanged = true
+            }
             queue.enqueue(
                 Events.build("security_log") {
                     put("tag", mapped.tag)
@@ -59,7 +68,20 @@ class SecurityLogCollector(private val context: Context) {
                 },
             )
         }
-        fresh.lastOrNull()?.let { prefs.edit { putLong(KEY_LAST_NANOS, it.timeNanos) } }
+        fresh.lastOrNull()?.let { last ->
+            prefs.edit {
+                putLong(KEY_LAST_NANOS, last.timeNanos)
+                if (hashesChanged) putString(KEY_APK_HASHES, JSONObject(hashes as Map<String, String>).toString())
+            }
+        }
+    }
+
+    private fun loadHashes(): MutableMap<String, String> {
+        val raw = prefs.getString(KEY_APK_HASHES, null) ?: return mutableMapOf()
+        return runCatching {
+            val json = JSONObject(raw)
+            json.keys().asSequence().associateWith { json.getString(it) }.toMutableMap()
+        }.getOrDefault(mutableMapOf())
     }
 
     private fun iso(nanos: Long): String =
@@ -69,7 +91,16 @@ class SecurityLogCollector(private val context: Context) {
     private companion object {
         const val KEY_LAST_NANOS = "last_time_nanos"
         const val KEY_BOOT = "pre_reboot_boot_count"
+        const val KEY_APK_HASHES = "apk_hashes"
         /** The admin callback and the service start may both run a collection. */
         val lock = Mutex()
     }
+}
+
+/** True when [hash] is new for [process]. Same hash on the next launch is not reported again. */
+internal fun rememberApkHash(known: MutableMap<String, String>, process: String, hash: String): Boolean {
+    if (process.isEmpty() || hash.length != 64) return false
+    if (known[process] == hash) return false
+    known[process] = hash
+    return true
 }

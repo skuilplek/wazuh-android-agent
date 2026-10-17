@@ -9,6 +9,7 @@
     "agent_port": "1514",
     "enrollment_password": "",
     "groups": "android",
-    "manager_cert_sha256": "REPLACE_WITH_SHA256_OF_AUTHD_CERT_OR_REMOVE"
+    "manager_cert_sha256": "REPLACE_WITH_SHA256_OF_AUTHD_CERT_OR_REMOVE",
+    "org_policy": "false"
   }
 }

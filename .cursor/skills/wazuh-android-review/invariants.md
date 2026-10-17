@@ -4,7 +4,7 @@ These are current behavior. A review finding is a change that breaks one, or a f
 
 ## Device admin
 
-`device_admin.xml` uses only `watch-login`. The admin reports failed unlocks. It does not lock, wipe, reset the password, disable the camera, or set password rules. Reject any new `<uses-policies>` child.
+`device_admin.xml` uses only `watch-login`. The admin reports failed unlocks. It does not lock, wipe, reset the password, disable the camera, or set password rules. Reject any new `<uses-policies>` child. Organization policy (`DISALLOW_INSTALL_UNKNOWN_SOURCES`, automatic system updates, medium password complexity) stays off unless a QR extra or the Settings switch turns it on, and it applies only when the app is Device Owner.
 
 ## Process
 
@@ -25,7 +25,8 @@ These are current behavior. A review finding is a change that breaks one, or a f
 - Collectors build events with `Events.build`, so the JSON is `{"android": {"type", "event_time", "app_version", ...}}`.
 - `EventQueue.truncate` is the exception. Over 20,000 characters it replaces the body with `{"android": {"type", "truncated": true, "original_size"}}` and drops `event_time` and `app_version`. Keep that shape.
 - The location string sent to the manager is `android` and must not contain `:`.
-- `manager/rules/android_rules.xml` rule `100200` lists the known types: `posture`, `posture_finding`, `posture_change`, `package`, `package_inventory`, `package_summary`, `network`, `agent_log`, `unlock`, `agent_admin`, `security_log`, `network_log`, `process_snapshot`. A new type or a renamed field is incomplete until a rule in `100200`–`100299` matches it.
+- `manager/rules/android_rules.xml` rule `100200` lists the known types: `posture`, `posture_finding`, `posture_change`, `package`, `package_inventory`, `package_summary`, `network`, `agent_log`, `unlock`, `agent_admin`, `security_log`, `network_log`, `process_snapshot`, `threat_intel`, `response`, `location`. A new type or a renamed field is incomplete until a rule in `100200`–`100299` matches it.
+- `#!-execd` runs only `android-suspend`, `android-unsuspend`, `android-hide`, `android-unhide`, `android-clear`, `android-uninstall`, `android-lock`, `android-locate`, and `android-wipe`, and only when the app is Device Owner. Unknown commands are ignored. `android-wipe` runs only when the extra arguments include `confirm-wipe`. The handler does not start a shell. `#!-req` stays unsupported.
 - Rule IDs stay inside `100200`–`100299`.
 
 ## What this app is not

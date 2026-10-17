@@ -12,6 +12,7 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import io.github.hannescoetzee.wazuhagent.queue.EventQueue
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -41,6 +42,8 @@ class PackageCollector(private val context: Context, private val queue: EventQue
                             Intent.ACTION_PACKAGE_REPLACED -> onChanged(pkg, "updated")
                             Intent.ACTION_PACKAGE_FULLY_REMOVED -> onChanged(pkg, "removed")
                         }
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         AgentLog.error("Package event handling failed for $pkg", e)
                     } finally {
@@ -71,16 +74,16 @@ class PackageCollector(private val context: Context, private val queue: EventQue
 
         if (snapshot == null) {
             installed.values.sortedBy { it.packageName }.forEach { info ->
-                queue.enqueue(Events.build("package_inventory") { putAll(describe(info)) })
+                queue.enqueue(Events.build("package_inventory") { putAll(describe(info, hashApk = true)) })
             }
             queue.enqueue(summary(installed.values))
         } else {
             installed.values.forEach { info ->
                 val known = snapshot[info.packageName]
                 when {
-                    known == null -> queue.enqueue(packageEvent("installed", describe(info), missedWhileOffline = true))
+                    known == null -> queue.enqueue(packageEvent("installed", describe(info, hashApk = true), missedWhileOffline = true))
                     known.versionCode != versionCode(info) || known.lastUpdate != info.lastUpdateTime ->
-                        queue.enqueue(packageEvent("updated", describe(info), missedWhileOffline = true, previous = known))
+                        queue.enqueue(packageEvent("updated", describe(info, hashApk = true), missedWhileOffline = true, previous = known))
                 }
             }
             (snapshot.keys - installed.keys).forEach { name ->
@@ -99,7 +102,7 @@ class PackageCollector(private val context: Context, private val queue: EventQue
             queue.enqueue(packageEvent("removed", known?.let { removedDescription(packageName, it) } ?: JSONObject().put("package", packageName)))
         } else {
             val info = packageInfo(packageName) ?: return@withLock
-            queue.enqueue(packageEvent(action, describe(info), previous = snapshot[packageName]))
+            queue.enqueue(packageEvent(action, describe(info, hashApk = true), previous = snapshot[packageName]))
             snapshot[packageName] = Known(versionCode(info), info.lastUpdateTime, label(info), info.versionName.orEmpty(), installerOf(packageName).orEmpty())
         }
         writeSnapshot(snapshot)
@@ -126,11 +129,12 @@ class PackageCollector(private val context: Context, private val queue: EventQue
         put("sideloaded", Events.array(sideloaded.map { it.packageName }.sorted()))
     }.also { prefs.edit { putLong(KEY_LAST_SUMMARY, System.currentTimeMillis()) } }
 
-    private fun describe(info: PackageInfo): JSONObject {
+    private fun describe(info: PackageInfo, hashApk: Boolean): JSONObject {
         val app = info.applicationInfo
         val installer = installerOf(info.packageName)
         val installerType = InstallerType.of(installer)
         val dangerous = grantedDangerousPermissions(info)
+        val signers = signerDigests(info)
         return JSONObject().apply {
             put("package", info.packageName)
             put("label", label(info))
@@ -146,6 +150,9 @@ class PackageCollector(private val context: Context, private val queue: EventQue
             put("last_update_time", info.lastUpdateTime)
             put("dangerous_permissions", Events.array(dangerous))
             put("can_install_packages", info.requestedPermissions?.contains(android.Manifest.permission.REQUEST_INSTALL_PACKAGES) == true)
+            currentSigner(signers, multipleSigners(info))?.let { put("signer_sha256", it) }
+            if (signers.isNotEmpty()) put("signers", Events.array(signers))
+            if (hashApk) sha256File(app?.sourceDir)?.let { put("apk_sha256", it) }
         }
     }
 
@@ -180,18 +187,43 @@ class PackageCollector(private val context: Context, private val queue: EventQue
     }
 
     private fun installedPackages(): List<PackageInfo> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        pm.getInstalledPackages(PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong()))
+        pm.getInstalledPackages(PackageManager.PackageInfoFlags.of(packageFlags().toLong()))
     } else {
-        @Suppress("DEPRECATION") pm.getInstalledPackages(PackageManager.GET_PERMISSIONS)
+        @Suppress("DEPRECATION") pm.getInstalledPackages(packageFlags())
     }
 
     private fun packageInfo(name: String): PackageInfo? = runCatching {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            pm.getPackageInfo(name, PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong()))
+            pm.getPackageInfo(name, PackageManager.PackageInfoFlags.of(packageFlags().toLong()))
         } else {
-            @Suppress("DEPRECATION") pm.getPackageInfo(name, PackageManager.GET_PERMISSIONS)
+            @Suppress("DEPRECATION") pm.getPackageInfo(name, packageFlags())
         }
     }.getOrNull()
+
+    /** Permissions plus the signing certificates. The APK file itself is hashed only for new and changed apps. */
+    private fun packageFlags(): Int {
+        val signing = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            PackageManager.GET_SIGNING_CERTIFICATES
+        } else {
+            @Suppress("DEPRECATION") PackageManager.GET_SIGNATURES
+        }
+        return PackageManager.GET_PERMISSIONS or signing
+    }
+
+    private fun signerDigests(info: PackageInfo): List<String> = certificateBytes(info).map { sha256Hex(it) }
+
+    @Suppress("DEPRECATION")
+    private fun certificateBytes(info: PackageInfo): List<ByteArray> {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val signing = info.signingInfo ?: return emptyList()
+            val certificates = if (signing.hasMultipleSigners()) signing.apkContentsSigners else signing.signingCertificateHistory
+            return certificates?.map { it.toByteArray() }.orEmpty()
+        }
+        return info.signatures?.map { it.toByteArray() }.orEmpty()
+    }
+
+    private fun multipleSigners(info: PackageInfo): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && info.signingInfo?.hasMultipleSigners() == true
 
     private fun installerOf(name: String): String? = runCatching {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
