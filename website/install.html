@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Install · Wazuh Agent</title>
-  <meta name="description" content="Build the Wazuh Android agent with JDK 17 and Android SDK 35, sideload the debug APK, and enroll with a manager.">
+  <meta name="description" content="Download the latest Wazuh Android agent release and sideload it, or build it from source with JDK 17 and Android SDK 35.">
   <link rel="icon" href="img/mark.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -46,53 +46,35 @@
     <div class="wrap">
       <header class="page-head">
         <p class="spec-no">Install</p>
-        <h1>Build the app and enroll the phone.</h1>
-        <p class="lede">JDK 17 and the Android SDK, platform 35. The debug APK is enough to sideload.</p>
+        <h1>Download the app and enroll the phone.</h1>
+        <p class="lede">The latest release APK sideloads without a build. JDK 17 and the Android SDK are only needed if you build it yourself.</p>
       </header>
 
       <section class="spec">
         <p class="spec-no">01</p>
         <div>
-          <h2>Requirements</h2>
-          <p>These commands assume Homebrew on macOS. Point <code>JAVA_HOME</code> and <code>ANDROID_HOME</code> at the same places if you install the JDK and SDK another way.</p>
-          <div class="cmd">
-            <pre><code>brew install openjdk@17
-brew install --cask android-commandlinetools
-export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
-export ANDROID_HOME=/opt/homebrew/share/android-commandlinetools
-sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-echo "sdk.dir=$ANDROID_HOME" &gt; local.properties</code></pre>
-            <button type="button" class="text-btn" data-copy>Copy</button>
-          </div>
+          <h2>Download</h2>
+          <p>This is the latest release APK. The address stays the same when a new version is published.</p>
+          <p class="actions">
+            <a class="btn" href="https://github.com/skuilplek/wazuh-android-agent/releases/latest/download/wazuh-agent-release.apk">Download wazuh-agent-release.apk</a>
+          </p>
         </div>
       </section>
 
       <section class="spec">
         <p class="spec-no">02</p>
         <div>
-          <h2>Build</h2>
-          <p>Protocol tests use vectors built independently from the Wazuh C sources. The debug APK lands in <code>app/build/outputs/apk/debug/</code>.</p>
-          <div class="cmd">
-            <pre><code>./gradlew :protocol:test
-./gradlew :app:assembleDebug</code></pre>
-            <button type="button" class="text-btn" data-copy>Copy</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="spec">
-        <p class="spec-no">03</p>
-        <div>
           <h2>Put it on the phone</h2>
           <ol class="steps">
             <li>
-              <h3>Turn on USB debugging</h3>
-              <p>On the phone, enable Developer options, then USB debugging, and connect it by USB.</p>
+              <h3>Open the APK</h3>
+              <p>On the phone, download <code>wazuh-agent-release.apk</code> or copy it across, then open it. When Android asks, allow installs from the browser or the Files app.</p>
             </li>
             <li>
-              <h3>Install the APK</h3>
+              <h3>Or install over USB</h3>
+              <p>Enable Developer options, then USB debugging, and connect the phone. The file below is the APK you downloaded.</p>
               <div class="cmd">
-                <pre><code>$ANDROID_HOME/platform-tools/adb install -r app/build/outputs/apk/debug/wazuh-agent-*-debug.apk</code></pre>
+                <pre><code>adb install -r wazuh-agent-release.apk</code></pre>
                 <button type="button" class="text-btn" data-copy>Copy</button>
               </div>
             </li>
@@ -116,14 +98,45 @@ echo "sdk.dir=$ANDROID_HOME" &gt; local.properties</code></pre>
       </section>
 
       <section class="spec">
+        <p class="spec-no">03</p>
+        <div>
+          <h2>Requirements</h2>
+          <p>Skip this and the next section if you installed the release APK. Building from source needs JDK 17 and Android SDK platform 35. These commands assume Homebrew on macOS. Point <code>JAVA_HOME</code> and <code>ANDROID_HOME</code> at the same places if you install the JDK and SDK another way.</p>
+          <div class="cmd">
+            <pre><code>brew install openjdk@17
+brew install --cask android-commandlinetools
+export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+export ANDROID_HOME=/opt/homebrew/share/android-commandlinetools
+sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+echo "sdk.dir=$ANDROID_HOME" &gt; local.properties</code></pre>
+            <button type="button" class="text-btn" data-copy>Copy</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="spec">
         <p class="spec-no">04</p>
+        <div>
+          <h2>Build</h2>
+          <p>Protocol tests use vectors built independently from the Wazuh C sources. <code>./build_app.sh</code> rebuilds the debug APK into <code>app/build/outputs/apk/debug/</code>.</p>
+          <div class="cmd">
+            <pre><code>./gradlew :protocol:test
+./build_app.sh</code></pre>
+            <button type="button" class="text-btn" data-copy>Copy</button>
+          </div>
+          <p>Install that build with <code>adb install -r app/build/outputs/apk/debug/wazuh-agent-*-debug.apk</code>.</p>
+        </div>
+      </section>
+
+      <section class="spec">
+        <p class="spec-no">05</p>
         <div>
           <h2>Certificate and versions</h2>
           <p>The app pins the manager’s enrollment certificate the first time it enrolls. Later enrollments to the same host must present the same certificate.</p>
           <ol class="rows">
             <li>
               <h3>App version</h3>
-              <p><code>0.3.0</code> (version code 3), from <code>versionName</code> and <code>versionCode</code>. It is shown in the app, sent in every event as <code>android.app_version</code>, and sent as the agent label <code>agent.app_version</code>. Bump it for each build you install.</p>
+              <p><code>1.0.0</code> (version code 1), from <code>versionName</code> and <code>versionCode</code>. It is shown in the app, sent in every event as <code>android.app_version</code>, and sent as the agent label <code>agent.app_version</code>. Bump it for each build you install.</p>
             </li>
             <li>
               <h3>Protocol version</h3>
@@ -145,7 +158,7 @@ echo "sdk.dir=$ANDROID_HOME" &gt; local.properties</code></pre>
   </main>
   <footer class="site-footer">
     <div class="wrap foot">
-      <p>Android agent · version 0.3.0</p>
+      <p>Android agent · version 1.0.0</p>
       <a href="https://github.com/skuilplek/wazuh-android-agent">github.com/skuilplek/wazuh-android-agent</a>
     </div>
   </footer>

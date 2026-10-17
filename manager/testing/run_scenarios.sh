@@ -18,7 +18,7 @@ set -euo pipefail
 
 LOG_FILE="${1:-scenario_log.jsonl}"
 ADB="${ADB:-adb}"
-AGENT_PACKAGE="io.github.hannescoetzee.wazuhagent"
+AGENT_PACKAGE="com.wazuh_mobile_client.android"
 
 log_scenario() {
   local scenario="$1" window="$2" description="$3" ts

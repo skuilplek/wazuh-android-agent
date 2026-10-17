@@ -56,7 +56,7 @@
           <h2>Set the owner with adb</h2>
           <p>Install the app on the freshly reset phone, then:</p>
           <div class="cmd">
-            <pre><code>adb shell dpm set-device-owner io.github.hannescoetzee.wazuhagent/.admin.AgentDeviceAdminReceiver</code></pre>
+            <pre><code>adb shell dpm set-device-owner com.wazuh_mobile_client.android/io.github.hannescoetzee.wazuhagent.admin.AgentDeviceAdminReceiver</code></pre>
             <button type="button" class="text-btn" data-copy>Copy</button>
           </div>
           <p>Open the app and enroll as usual. The Capabilities card shows whether the security and network logs are on.</p>
@@ -88,18 +88,25 @@
           <p>A factory-reset phone can be set up from a QR code instead of adb. The phone downloads the app, makes it Device Owner, and enrolls with the manager without anyone typing the settings.</p>
           <ol class="steps">
             <li>
-              <h3>Host a release APK</h3>
-              <p>Build a release APK and host it at an HTTPS URL the phone can reach.</p>
+              <h3>Use the release APK</h3>
+              <p><code>PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION</code> is the latest release. The phone downloads it during setup. You do not host the file yourself. The example payload already has this URL:</p>
+              <div class="cmd">
+                <pre><code>https://github.com/skuilplek/wazuh-android-agent/releases/latest/download/wazuh-agent-release.apk</code></pre>
+                <button type="button" class="text-btn" data-copy>Copy</button>
+              </div>
             </li>
             <li>
               <h3>Fill the payload</h3>
-              <p>Copy <code>provisioning/qr_payload.example.json</code>. Set <code>PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION</code> to the APK URL.</p>
-              <p>Set <code>PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM</code> to the SHA-256 of the signing certificate, base64url-encoded:</p>
+              <p>Copy <code>provisioning/qr_payload.example.json</code>. Leave <code>PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION</code> as the URL above.</p>
+              <p><code>PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM</code> is the signing certificate of the APK the phone downloads, not of a build on your computer. Download <code>wazuh-agent-release.apk</code> from that URL, then run:</p>
               <div class="cmd">
-                <pre><code>apksigner verify --print-certs app-release.apk | grep 'SHA-256' | head -1 | awk '{print $NF}' \
+                <pre><code>curl -fsSL -o wazuh-agent-release.apk \
+  https://github.com/skuilplek/wazuh-android-agent/releases/latest/download/wazuh-agent-release.apk
+apksigner verify --print-certs wazuh-agent-release.apk | grep 'SHA-256' | head -1 | awk '{print $NF}' \
   | xxd -r -p | base64 | tr '+/' '-_' | tr -d '='</code></pre>
                 <button type="button" class="text-btn" data-copy>Copy</button>
               </div>
+              <p>Paste the result into the payload. The checksum stays valid for later releases only while they are signed with the same key.</p>
               <p>Admin extras: <code>manager_host</code>, <code>enroll_port</code>, <code>agent_port</code>, <code>enrollment_password</code>, <code>groups</code>, and optionally <code>agent_name</code> and <code>keepalive_seconds</code>.</p>
               <p><code>manager_cert_sha256</code> is the SHA-256 of the manager’s authd certificate, so the first enrollment is pinned instead of trusting whatever certificate it sees. Remove the key to trust the first certificate instead.</p>
               <div class="cmd">
@@ -138,7 +145,7 @@
   </main>
   <footer class="site-footer">
     <div class="wrap foot">
-      <p>Android agent · version 0.3.0</p>
+      <p>Android agent · version 1.0.0</p>
       <a href="https://github.com/skuilplek/wazuh-android-agent">github.com/skuilplek/wazuh-android-agent</a>
     </div>
   </footer>

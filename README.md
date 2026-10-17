@@ -62,8 +62,18 @@ sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 echo "sdk.dir=$ANDROID_HOME" > local.properties
 
 ./gradlew :protocol:test          # protocol unit tests
-./gradlew :app:assembleDebug      # app/build/outputs/apk/debug/wazuh-agent-<version>-debug.apk
+./build_app.sh                    # debug APK
+./build_app.sh --release          # release APK, tag v<versionName>, GitHub Release
 ```
+
+`./build_app.sh` runs `assembleDebug`. The APK is
+`app/build/outputs/apk/debug/wazuh-agent-<version>-debug.apk`.
+`./build_app.sh --release` runs `assembleRelease` for the `versionName` already in
+`app/build.gradle.kts`. It refuses a detached HEAD, a dirty tree, or an existing
+`v<versionName>` tag, pushes the current branch, and publishes a GitHub Release of
+that commit. The release includes `wazuh-agent-<versionName>-release.apk` and
+`wazuh-agent-release.apk`. The install page and the QR payload use
+`https://github.com/skuilplek/wazuh-android-agent/releases/latest/download/wazuh-agent-release.apk`.
 
 ## Install on the phone
 
@@ -85,8 +95,8 @@ echo "sdk.dir=$ANDROID_HOME" > local.properties
 6. To report which apps are in the foreground, tap **Allow** next to **App activity
    (running apps)**. Android opens the Usage Access screen; turn the app on there. With
    adb, either of these works:
-   `adb shell appops set io.github.hannescoetzee.wazuhagent GET_USAGE_STATS allow` or
-   `adb shell pm grant io.github.hannescoetzee.wazuhagent android.permission.PACKAGE_USAGE_STATS`.
+   `adb shell appops set com.wazuh_mobile_client.android GET_USAGE_STATS allow` or
+   `adb shell pm grant com.wazuh_mobile_client.android android.permission.PACKAGE_USAGE_STATS`.
    On a rooted phone the process list comes from `ps` instead, including memory per
    process. Allow the app in the root manager first. Magisk shows a prompt the first time
    and the agent waits 20 seconds for an answer. KernelSU shows nothing until the app is
@@ -116,7 +126,7 @@ phone with no Google or other accounts added.
 With adb, after installing the app on the freshly reset phone:
 
 ```sh
-adb shell dpm set-device-owner io.github.hannescoetzee.wazuhagent/.admin.AgentDeviceAdminReceiver
+adb shell dpm set-device-owner com.wazuh_mobile_client.android/io.github.hannescoetzee.wazuhagent.admin.AgentDeviceAdminReceiver
 ```
 
 Then open the app and enroll as usual. The **Capabilities** card shows whether the security
@@ -131,14 +141,19 @@ To remove Device Owner, factory-reset the phone.
 Instead of adb, a factory-reset phone can be set up from a QR code. It downloads the app, makes
 it Device Owner and enrolls with the manager without anyone typing the settings.
 
-1. Build a release APK and host it at an HTTPS URL the phone can reach.
+1. The phone downloads the latest release. `PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION`
+   in the example payload is already
+   `https://github.com/skuilplek/wazuh-android-agent/releases/latest/download/wazuh-agent-release.apk`.
+   You do not host the APK yourself.
 2. Copy [`provisioning/qr_payload.example.json`](provisioning/qr_payload.example.json) and
    fill in:
-   - `PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION`: the APK URL.
-   - `PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM`: the SHA-256 of the signing certificate,
-     base64url-encoded:
+   - `PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM`: the SHA-256 of the signing certificate
+     of that downloaded APK, not of a build on your computer, base64url-encoded. The checksum
+     stays valid for later releases only while they are signed with the same key.
      ```sh
-     apksigner verify --print-certs app-release.apk | grep 'SHA-256' | head -1 | awk '{print $NF}' \
+     curl -fsSL -o wazuh-agent-release.apk \
+       https://github.com/skuilplek/wazuh-android-agent/releases/latest/download/wazuh-agent-release.apk
+     apksigner verify --print-certs wazuh-agent-release.apk | grep 'SHA-256' | head -1 | awk '{print $NF}' \
        | xxd -r -p | base64 | tr '+/' '-_' | tr -d '='
      ```
    - The admin extras: `manager_host`, `enroll_port`, `agent_port`, `enrollment_password`,
