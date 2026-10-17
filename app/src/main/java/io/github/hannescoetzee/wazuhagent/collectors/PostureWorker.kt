@@ -9,8 +9,9 @@ import androidx.work.WorkerParameters
 import io.github.hannescoetzee.wazuhagent.app
 import io.github.hannescoetzee.wazuhagent.service.AgentForegroundService
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.cancellation.CancellationException
 
-/** Periodic posture and package checks; runs even when Android has paused the service. */
+/** Periodic posture, package and process checks; runs even when Android has paused the service. */
 class PostureWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val app = applicationContext.app
@@ -26,9 +27,11 @@ class PostureWorker(context: Context, params: WorkerParameters) : CoroutineWorke
         return runCatching {
             PostureCollector(applicationContext).collectAndReport(app.queue)
             PackageCollector(applicationContext, app.queue).reconcile()
+            ProcessCollector(applicationContext).collectAndReport(app.queue)
             Result.success()
-        }.getOrElse {
-            AgentLog.error("Periodic collection failed", it)
+        }.getOrElse { error ->
+            if (error is CancellationException) throw error
+            AgentLog.error("Periodic collection failed", error)
             Result.retry()
         }
     }

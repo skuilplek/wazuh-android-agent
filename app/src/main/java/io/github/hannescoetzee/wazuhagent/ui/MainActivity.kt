@@ -18,11 +18,13 @@ import androidx.compose.runtime.mutableStateOf
 import io.github.hannescoetzee.wazuhagent.admin.AgentDeviceAdminReceiver
 import io.github.hannescoetzee.wazuhagent.collectors.Capabilities
 import io.github.hannescoetzee.wazuhagent.collectors.Capability
+import io.github.hannescoetzee.wazuhagent.collectors.RootCheck
 import io.github.hannescoetzee.wazuhagent.ui.theme.WazuhTheme
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
     private val capabilities = mutableStateOf(emptyList<Capability>())
+    private val suPresent = mutableStateOf(false)
 
     private val requestPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         refreshCapabilities()
@@ -35,6 +37,7 @@ class MainActivity : ComponentActivity() {
         location = {
             requestPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
         },
+        usageAccess = ::requestUsageAccess,
         deviceAdmin = ::requestDeviceAdmin,
     )
 
@@ -44,7 +47,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             WazuhTheme {
                 val caps by capabilities
-                AppScaffold(viewModel = viewModel, capabilities = caps, permissions = permissions)
+                val su by suPresent
+                AppScaffold(viewModel = viewModel, capabilities = caps, suPresent = su, permissions = permissions)
             }
         }
     }
@@ -56,6 +60,7 @@ class MainActivity : ComponentActivity() {
 
     private fun refreshCapabilities() {
         capabilities.value = Capabilities.check(this)
+        suPresent.value = RootCheck.suBinary() != null
     }
 
     private fun requestDeviceAdmin() {
@@ -80,6 +85,12 @@ class MainActivity : ComponentActivity() {
         val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
         runCatching { startActivity(intent) }
             .onFailure { runCatching { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } }
+    }
+
+    private fun requestUsageAccess() {
+        val direct = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:$packageName"))
+        runCatching { startActivity(direct) }
+            .onFailure { runCatching { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) } }
     }
 
     private fun requestExactAlarm() {

@@ -1,6 +1,6 @@
 # Wazuh Android Agent
 
-A native Kotlin agent for non-rooted Android phones. It enrolls with a Wazuh manager
+A native Kotlin agent for Android phones. Root is not required. It enrolls with a Wazuh manager
 through `wazuh-authd` (TLS, port 1515), then speaks the regular agent protocol to
 `wazuh-remoted` (AES, port 1514), so the phone shows up in the dashboard as a normal
 active agent.
@@ -17,10 +17,13 @@ It reports:
 - **Failed unlocks**: each wrong PIN, pattern or password, if you turn on the agent's device
   admin. The manager alerts on 5 failures within 5 minutes.
 - **Capabilities**: what the agent can and cannot see on this phone (device admin, Device
-  Owner, location, battery exemption), sent with each posture report and shown in the app.
+  Owner, location, Usage Access, battery exemption), sent with each posture report and shown in the app.
 - **Security and network logs** (Device Owner phones only): ADB shell commands, CA
   certificate installs, logging stopped, storage mounts, and DNS lookups and connections per
   app. See [Device Owner mode](#device-owner-mode-optional).
+- **Processes and memory**: RAM and swap every 15 minutes. On a rooted phone, the processes
+  using the most memory. Otherwise, with Usage Access, the foreground app, recent apps and
+  foreground services on Android 10 and newer. Usage Access does not include memory per app.
 - **Agent log**: the app's own errors and crashes.
 
 Events are queued in a local database while the phone is offline. The **Events** tab in the
@@ -79,6 +82,16 @@ echo "sdk.dir=$ANDROID_HOME" > local.properties
 5. Optionally, tap **Allow** next to **Device admin** to report failed unlock attempts. The
    admin only uses the "watch login" policy: it cannot lock, wipe or change the phone. If it
    is turned off later, the manager gets an alert (rule 100265).
+6. To report which apps are in the foreground, tap **Allow** next to **App activity
+   (running apps)**. Android opens the Usage Access screen; turn the app on there. With
+   adb, either of these works:
+   `adb shell appops set io.github.hannescoetzee.wazuhagent GET_USAGE_STATS allow` or
+   `adb shell pm grant io.github.hannescoetzee.wazuhagent android.permission.PACKAGE_USAGE_STATS`.
+   On a rooted phone the process list comes from `ps` instead, including memory per
+   process. Allow the app in the root manager first. Magisk shows a prompt the first time
+   and the agent waits 20 seconds for an answer. KernelSU shows nothing until the app is
+   allowed there. If a prompt was shown and denied or left to expire, the agent tries again
+   after an hour. A denial the root manager has saved is retried once a day.
 
 The app pins the manager's enrollment certificate the first time it enrolls. Later
 enrollments to the same host must present the same certificate.
@@ -151,8 +164,9 @@ WAZUH_MANAGER=192.168.1.10 WAZUH_PASSWORD=secret ./gradlew :protocol:test --test
 ## Limitations
 
 Without root, the agent cannot read the system logcat, monitor system file integrity, or
-see other apps' data. Security log and network log events need Device Owner mode, which
-needs a factory-reset phone. Failed unlocks are only reported while the agent's device
+see other apps' data. The per-process list and memory per process need root. Without root
+and without Usage Access, only system RAM and swap are reported. Security log and network
+log events need Device Owner mode, which needs a factory-reset phone. Failed unlocks are only reported while the agent's device
 admin is on. Remote upgrades (WPK), active response and remote configuration
 queries are not supported. Some OEM builds kill background services aggressively even with
 the battery exemption. On those phones, also allow-list the app in the vendor's battery

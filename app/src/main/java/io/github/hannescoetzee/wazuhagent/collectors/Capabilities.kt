@@ -2,6 +2,7 @@ package io.github.hannescoetzee.wazuhagent.collectors
 
 import android.Manifest
 import android.app.AlarmManager
+import android.app.AppOpsManager
 import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.pm.PackageManager
@@ -21,6 +22,7 @@ object Capabilities {
     const val SECURITY_LOGGING = "security_logging"
     const val NETWORK_LOGGING = "network_logging"
     const val LOCATION = "location"
+    const val USAGE_ACCESS = "usage_access"
     const val BATTERY_UNRESTRICTED = "battery_unrestricted"
     const val EXACT_ALARM = "exact_alarm"
     const val NOTIFICATIONS = "notifications"
@@ -56,6 +58,11 @@ object Capabilities {
                 "Wi-Fi name and BSSID are not reported",
             ),
             Capability(
+                USAGE_ACCESS, "App activity (running apps)",
+                usageAccessGranted(context),
+                "Running apps are not reported",
+            ),
+            Capability(
                 BATTERY_UNRESTRICTED, "Run unrestricted in background",
                 context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName),
                 "Android may stop the agent in the background",
@@ -79,6 +86,20 @@ object Capabilities {
         capabilities.forEach { c ->
             put(c.name, JSONObject().put("available", c.available).put("reason", if (c.available) "" else c.reason))
         }
+    }
+
+    fun usageAccessGranted(context: Context): Boolean {
+        val appOps = context.getSystemService(AppOpsManager::class.java) ?: return false
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            appOps.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), context.packageName)
+        } else {
+            @Suppress("DEPRECATION")
+            appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), context.packageName)
+        }
+        // Settings sets the app-op to allowed. `pm grant` leaves the op at its default and
+        // grants the permission instead, which also lets the usage queries succeed.
+        return mode == AppOpsManager.MODE_ALLOWED ||
+            (mode == AppOpsManager.MODE_DEFAULT && granted(context, Manifest.permission.PACKAGE_USAGE_STATS))
     }
 
     private fun granted(context: Context, permission: String) =

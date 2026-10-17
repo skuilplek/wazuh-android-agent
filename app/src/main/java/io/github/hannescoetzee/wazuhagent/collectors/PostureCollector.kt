@@ -12,10 +12,8 @@ import io.github.hannescoetzee.wazuhagent.queue.EventQueue
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
-import java.io.File
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
-import java.util.concurrent.TimeUnit
 
 /**
  * Device security posture. When any tracked value changes, and at least every
@@ -119,7 +117,7 @@ class PostureCollector(private val context: Context) {
             put("verified_boot_state", prop("ro.boot.verifiedbootstate"))
             put("bootloader_locked", prop("ro.boot.flash.locked").let { if (it.isEmpty()) JSONObject.NULL else it == "1" })
             put("build_tags", Build.TAGS ?: "")
-            val indicators = rootIndicators()
+            val indicators = RootCheck.indicators(context)
             put("root_indicators", Events.array(indicators))
             put("rooted", indicators.isNotEmpty())
             put("emulator", isEmulator())
@@ -179,30 +177,12 @@ class PostureCollector(private val context: Context) {
             .split(':').map { it.trim() }.filter { it.isNotEmpty() }.sorted()
     }.getOrDefault(emptyList())
 
-    private fun rootIndicators(): List<String> {
-        val found = mutableListOf<String>()
-        SU_PATHS.filter { File(it).exists() }.forEach { found += "su:$it" }
-        if (Build.TAGS?.contains("test-keys") == true) found += "build:test-keys"
-        if (prop("ro.debuggable") == "1") found += "prop:ro.debuggable"
-        if (prop("ro.secure") == "0") found += "prop:ro.secure=0"
-        val pm = context.packageManager
-        ROOT_PACKAGES.filter { pkg ->
-            runCatching { pm.getPackageInfo(pkg, 0); true }.getOrDefault(false)
-        }.forEach { found += "package:$it" }
-        return found
-    }
-
     private fun isEmulator(): Boolean =
         Build.FINGERPRINT.startsWith("generic") || Build.FINGERPRINT.contains("emulator") ||
             Build.HARDWARE.contains("goldfish") || Build.HARDWARE.contains("ranchu") ||
             Build.PRODUCT.contains("sdk") || Build.MODEL.contains("Emulator")
 
-    private fun prop(name: String): String = runCatching {
-        val process = ProcessBuilder("getprop", name).redirectErrorStream(true).start()
-        val value = process.inputStream.bufferedReader().use { it.readText().trim() }
-        if (!process.waitFor(2, TimeUnit.SECONDS)) process.destroyForcibly()
-        value
-    }.getOrDefault("")
+    private fun prop(name: String): String = readSystemProperty(name)
 
     companion object {
         private const val KEY_LAST = "last_snapshot"
@@ -225,16 +205,5 @@ class PostureCollector(private val context: Context) {
 
         /** The service, the settings observer and the periodic worker may all trigger a run. */
         private val lock = Mutex()
-
-        private val SU_PATHS = listOf(
-            "/system/bin/su", "/system/xbin/su", "/sbin/su", "/system/su", "/su/bin/su",
-            "/data/local/su", "/data/local/bin/su", "/data/local/xbin/su", "/system/sbin/su", "/vendor/bin/su",
-            "/data/adb/magisk", "/data/adb/ksu",
-        )
-        private val ROOT_PACKAGES = listOf(
-            "com.topjohnwu.magisk", "io.github.huskydg.magisk", "io.github.vvb2060.magisk",
-            "me.weishu.kernelsu", "com.rifsxd.ksunext", "eu.chainfire.supersu",
-            "com.koushikdutta.superuser", "com.noshufou.android.su", "com.kingroot.kinguser",
-        )
     }
 }

@@ -62,6 +62,7 @@ fun StatusScreen(
     status: AgentStatus,
     queueSize: Int,
     capabilities: List<Capability>,
+    suPresent: Boolean,
     events: List<RecentEvent>,
     permissions: PermissionActions,
     onStart: () -> Unit,
@@ -97,7 +98,7 @@ fun StatusScreen(
                 }
             }
 
-            AttentionCard(capabilities.missingGrantable(), permissions)
+            AttentionCard(capabilities.missingGrantable(suPresent), permissions)
 
             SectionCard(
                 title = "Recent events",

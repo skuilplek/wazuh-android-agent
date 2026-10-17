@@ -160,12 +160,19 @@ The failed-unlock scenario needs a PIN lock and the agent's device admin turned 
 | 100264 | 3 | Agent device admin turned on |
 | 100265 | 10 | Agent device admin turned off |
 | 100270-100272 | 3-7 | Agent log, warnings/errors, crashes |
+| 100285 | 3 | Memory and process snapshot (about every 15 minutes) |
+| 100286 | 7 | Device is low on memory |
+| 100287 | 5 | Memory 90% or more used |
 | 100290 | 12 | Blocked app installed or updated (lists file) |
 | 100291 | 10 | DNS lookup of a suspicious domain (lists file) |
 | 100292 | 12 | Blocked app present in inventory (lists file) |
 
 If DNS and connection alerts are too many, lower 100256 and 100257 to level 0. Rule 100291
 still works, because it only needs the rules to match, not to raise an alert.
+
+Rule 100285 fires about every 15 minutes, roughly 96 times a day per phone. Lower it to
+level 0 if that is too many. Rules 100286 and 100287 still alert, because they only need
+100285 to match.
 
 ## Dashboard queries
 
@@ -183,6 +190,13 @@ In **Discover** on `wazuh-alerts-*`, these queries cover the common questions:
 | CA certificates installed | `rule.id: 100244` |
 | DNS lookups by one app | `rule.id: 100256 and data.android.package: "com.example.app"` |
 | Disconnected phones | `rule.id: 504` |
+| Phones low on memory | `rule.id: 100286` |
+| Memory 90% or more used | `rule.id: 100287` |
+| Process list on a rooted phone | `data.android.type: process_snapshot and data.android.source: root` |
+
+`data.android.top_processes` on a rooted phone lists the processes using the most memory,
+for example `com.android.systemui 412MB`. Without root, `data.android.recent_apps` and
+`data.android.foreground_app` come from Usage Access.
 
 For a per-phone overview, build a data table visualization with a terms split on `agent.name`
 and a filter of `rule.groups: android and rule.level >= 7`. For patch levels, use a terms split

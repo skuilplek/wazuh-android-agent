@@ -15,6 +15,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.coroutines.cancellation.CancellationException
 
 /** Starts and stops all collectors together with the agent service. */
 class CollectorManager(
@@ -42,12 +43,11 @@ class CollectorManager(
         PostureWorker.schedule(context)
         DeviceOwner.enableLogging(context)
         scope.launch {
-            runCatching { posture.collectAndReport(queue) }
-                .onFailure { AgentLog.error("Posture collection failed", it) }
-            runCatching { packages.reconcile() }
-                .onFailure { AgentLog.error("Package reconcile failed", it) }
+            runCatching { posture.collectAndReport(queue) }.logUnlessCancelled("Posture collection failed")
+            runCatching { packages.reconcile() }.logUnlessCancelled("Package reconcile failed")
+            runCatching { ProcessCollector(context).collectAndReport(queue) }.logUnlessCancelled("Process collection failed")
             runCatching { SecurityLogCollector(context).collectPreReboot(queue) }
-                .onFailure { AgentLog.error("Pre-reboot security log collection failed", it) }
+                .logUnlessCancelled("Pre-reboot security log collection failed")
         }
     }
 
@@ -62,9 +62,14 @@ class CollectorManager(
         postureJob?.cancel()
         postureJob = scope.launch {
             delay(SETTINGS_SETTLE_MS)
-            runCatching { posture.collectAndReport(queue) }
-                .onFailure { AgentLog.error("Posture collection failed", it) }
+            runCatching { posture.collectAndReport(queue) }.logUnlessCancelled("Posture collection failed")
         }
+    }
+
+    private fun <T> Result<T>.logUnlessCancelled(message: String) {
+        val error = exceptionOrNull() ?: return
+        if (error is CancellationException) throw error
+        AgentLog.error(message, error)
     }
 
     companion object {
@@ -80,7 +85,7 @@ class CollectorManager(
 
         /** A new agent id on the manager should get a fresh inventory and first posture report. */
         fun resetState(context: Context) {
-            listOf("posture_state", "package_state", "network_state").forEach {
+            listOf("posture_state", "package_state", "network_state", "process_state").forEach {
                 context.getSharedPreferences(it, Context.MODE_PRIVATE).edit().clear().commit()
             }
         }

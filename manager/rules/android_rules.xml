@@ -13,7 +13,7 @@
   <!-- Base: any event from the Android agent -->
   <rule id="100200" level="0">
     <decoded_as>json</decoded_as>
-    <field name="android.type" type="pcre2">^(posture|posture_finding|posture_change|package|package_inventory|package_summary|network|agent_log|unlock|agent_admin|security_log|network_log)$</field>
+    <field name="android.type" type="pcre2">^(posture|posture_finding|posture_change|package|package_inventory|package_summary|network|agent_log|unlock|agent_admin|security_log|network_log|process_snapshot)$</field>
     <description>Android agent event</description>
   </rule>
 
@@ -397,6 +397,30 @@
     <field name="android.truncated">^true$</field>
     <description>Android agent dropped an oversized $(android.type) event ($(android.original_size) bytes)</description>
     <group>android_agent,</group>
+  </rule>
+
+  <!-- ===================== Processes and memory ===================== -->
+  <!-- 100285 fires about every 15 minutes. Lower it to level 0 if that volume is too high. -->
+
+  <rule id="100285" level="3">
+    <if_sid>100200</if_sid>
+    <field name="android.type">^process_snapshot$</field>
+    <description>Android memory $(android.mem_used_percent)% used, $(android.mem_available_mb) MB free (source $(android.source))</description>
+    <group>android_process,</group>
+  </rule>
+
+  <rule id="100286" level="7">
+    <if_sid>100285</if_sid>
+    <field name="android.low_memory">^true$</field>
+    <description>Android device is low on memory ($(android.mem_available_mb) MB free, threshold $(android.low_memory_threshold_mb) MB)</description>
+    <group>android_process,</group>
+  </rule>
+
+  <rule id="100287" level="5">
+    <if_sid>100285</if_sid>
+    <field name="android.mem_used_percent" type="pcre2">^(9[0-9]|100)$</field>
+    <description>Android memory $(android.mem_used_percent)% used ($(android.mem_available_mb) MB free)</description>
+    <group>android_process,</group>
   </rule>
 
 </group>

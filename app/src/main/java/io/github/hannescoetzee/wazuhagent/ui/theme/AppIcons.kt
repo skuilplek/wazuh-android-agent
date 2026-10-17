@@ -49,6 +49,12 @@ object AppIcons {
             "M15.67,4H14V2h-4v2H8.33C7.6,4 7,4.6 7,5.33v15.33C7,21.4 7.6,22 8.33,22h7.33c0.74,0 1.34,-0.6 1.34,-1.33V5.33C17,4.6 16.4,4 15.67,4z",
         )
     }
+    val Memory by lazy {
+        icon(
+            "Memory",
+            "M15,9H9v6h6V9zM13,13h-2v-2h2V13zM21,11V9h-2V7c0,-1.1 -0.9,-2 -2,-2h-2V3h-2v2h-4V3H7v2H5c-1.1,0 -2,0.9 -2,2v2H1v2h2v2H1v2h2v2H1v2h2v2c0,1.1 0.9,2 2,2h2v2h2v-2h4v2h2v-2h2c1.1,0 2,-0.9 2,-2v-2h2v-2h-2v-2h2v-2h-2V11z",
+        )
+    }
     val Dns by lazy {
         icon(
             "Dns",

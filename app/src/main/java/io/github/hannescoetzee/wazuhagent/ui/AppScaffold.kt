@@ -48,7 +48,12 @@ enum class Tab(val label: String) {
 }
 
 @Composable
-fun AppScaffold(viewModel: MainViewModel, capabilities: List<Capability>, permissions: PermissionActions) {
+fun AppScaffold(
+    viewModel: MainViewModel,
+    capabilities: List<Capability>,
+    suPresent: Boolean,
+    permissions: PermissionActions,
+) {
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     val status by viewModel.status.collectAsStateWithLifecycle()
     val queueSize by viewModel.queueSize.collectAsStateWithLifecycle()
@@ -73,7 +78,7 @@ fun AppScaffold(viewModel: MainViewModel, capabilities: List<Capability>, permis
         viewModel.consumeMessage(message)
     }
 
-    val attentionCount = capabilities.missingGrantable().size
+    val attentionCount = capabilities.missingGrantable(suPresent).size
     val stateHolder = rememberSaveableStateHolder()
 
     Scaffold(
@@ -114,6 +119,7 @@ fun AppScaffold(viewModel: MainViewModel, capabilities: List<Capability>, permis
                         status = status,
                         queueSize = queueSize,
                         capabilities = capabilities,
+                        suPresent = suPresent,
                         events = events,
                         permissions = permissions,
                         onStart = viewModel::startAgent,

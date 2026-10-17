@@ -52,6 +52,7 @@ enum class EventKind(val color: Color) {
     SECURITY(Color(0xFFE57373)),
     DEVICE(Color(0xFFFFB300)),
     AGENT(Color(0xFF90A4AE)),
+    PROCESS(Color(0xFF8D6E63)),
     OTHER(Color(0xFF90A4AE));
 
     val icon: ImageVector
@@ -61,6 +62,7 @@ enum class EventKind(val color: Color) {
             NETWORK -> AppIcons.Public
             SECURITY -> AppIcons.Shield
             DEVICE -> Icons.Filled.Lock
+            PROCESS -> AppIcons.Memory
             AGENT, OTHER -> Icons.Filled.Info
         }
 
@@ -72,6 +74,7 @@ enum class EventKind(val color: Color) {
             type == "security_log" -> SECURITY
             type == "unlock" || type == "agent_admin" -> DEVICE
             type == "agent_log" -> AGENT
+            type == "process_snapshot" -> PROCESS
             else -> OTHER
         }
     }
