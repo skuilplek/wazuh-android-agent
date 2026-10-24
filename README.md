@@ -62,6 +62,21 @@ echo "sdk.dir=$ANDROID_HOME" > local.properties
 ./gradlew :app:assembleDebug      # app/build/outputs/apk/debug/wazuh-agent-<version>-debug.apk
 ```
 
+### Release signing
+
+`./gradlew :app:assembleRelease` signs with the debug key unless all four of these are set, as Gradle
+properties (`-P`, or `~/.gradle/gradle.properties`) or environment variables:
+
+| Setting | Value |
+|---|---|
+| `WAZUH_AGENT_STORE_FILE` | path to the keystore |
+| `WAZUH_AGENT_STORE_PASSWORD` | keystore password |
+| `WAZUH_AGENT_KEY_ALIAS` | key alias |
+| `WAZUH_AGENT_KEY_PASSWORD` | key password |
+
+Setting only some of them fails the build, so a typo never falls back to the debug key silently.
+Android only accepts an update signed with the same key, so keep the keystore and passwords backed up.
+
 ## Install on the phone
 
 1. On the phone, enable **Developer options > USB debugging** and connect it by USB.
